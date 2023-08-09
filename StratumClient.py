@@ -35,38 +35,42 @@ class StratumClient:
             response_message = StratumMessage(response['method'], response['params'], response['id'])
             response_json = response_message.to_json()
 
-            print(response_json)
+            print("Mensaje enviado: {}".format(response_json))
 
             # Enviar la respuesta
             self.send(response_json)
 
 
-    def handle_stratum_message(self, message):
-        version = message.get('version')
+    # def handle_stratum_message(self, message):
+    #     version = message.get('version')
+    #
+    #     if version == 'Stratum/1.0.0' or version is None:
+    #         return self.handle_stratum_v1(message)
+    #     elif version == 'Stratum/2.0.0':
+    #         return self.handle_stratum_v2(message)
+    #     else:
+    #         response = {
+    #             'jsonrpc': '2.0',
+    #             'error': {
+    #                 'code': -32600,
+    #                 'message': 'Versión no soportada'
+    #             },
+    #             'id': None
+    #         }
+    #         return response
 
-        if version == 'Stratum/1.0.0' or version is None:
-            return self.handle_stratum_v1(message)
-        elif version == 'Stratum/2.0.0':
-            # data = self.handle_stratum_v2(message)
-            pass
-        else:
-            response = {
-                'jsonrpc': '2.0',
-                'error': {
-                    'code': -32600,
-                    'message': 'Versión no soportada'
-                },
-                'id': None
-            }
-            return response
+    def handle_stratum_message(self, message):
+        if 'jsonrpc' in message:
+            version = message['jsonrpc']
+            if version == '2.0':
+                return self.handle_stratum_v2(message)
+        return self.handle_stratum_v1(message)
 
     def handle_stratum_v1(self, message):
         method = message['method']
-        params = message['params']
-
+        # params = message['params']
 
         if method == 'mining.subscribe':
-            # subscription_id_1, subscription_id_2 = self.extract_subscription_ids(message)
             subscription_id_1 = random.randint(1, 100000)
             subscription_id_2 = random.randint(1, 100000)
             extranonce1 = Config.get_extranonce()
@@ -92,11 +96,6 @@ class StratumClient:
         print(response)
         return response
 
-
-    # def extract_subscription_ids(self, message):
-    #     subscription_id_1 = message['params'][0][0][1]
-    #     subscription_id_2 = message['params'][0][1][1]
-    #     return subscription_id_1, subscription_id_2
 
     def create_subscribe_response(self, id, subscription_id_1, subscription_id_2, extranonce1, extranonce2_size):
         response = {
@@ -152,3 +151,85 @@ class StratumClient:
             ]
         }
         return response
+
+
+    def handle_stratum_v2(self, message):
+        method = message['method']
+
+        if method == 'mining.subscribe':
+            subscription_id_1 = random.randint(1, 100000)
+            subscription_id_2 = random.randint(1, 100000)
+            extranonce1 = Config.get_extranonce()
+            extranonce2_size = Config.get_difficulty_target()
+            response = self.create_subscribe_response_v2(1, subscription_id_1, subscription_id_2, extranonce1, extranonce2_size)
+
+        elif method == 'mining.notify':
+            job_data = self.stratum_processing.create_job_stratum(protocol_version=2)
+            response = self.create_mining_notify_response_v2(job_data)
+
+        elif method == 'mining.set_difficulty':
+            difficulty = Config.get_difficulty_target()
+            response = self.create_mining_set_difficulty_response_v2(difficulty)
+
+        elif method == 'mining.set_extranonce':
+            extranonce1 = Config.get_extranonce()
+            extranonce2_size = Config.get_difficulty_target()
+            response = self.create_mining_set_extranonce_response_v2(extranonce1, extranonce2_size)
+
+        else:
+            response = {'error': 'Unknown method'}
+
+        print(response)
+        return response
+
+    def create_subscribe_response_v2(self, id, subscription_id_1, subscription_id_2, extranonce1, extranonce2_size):
+        response = {
+            "id": id,
+            "result": {
+                "subscription_id": subscription_id_1,
+                "extranonce1": extranonce1,
+                "extranonce2_size": extranonce2_size
+            },
+            "error": None
+        }
+        return response
+
+    def create_mining_notify_response_v2(self, job_data):
+        response = {
+            'id': None,
+            'method': 'mining.notify',
+            'params': {
+                'job_id': job_data['job_id'],
+                'version': job_data['version'],
+                'prevhash': job_data['prevhash'],
+                'coinbase1': job_data['coinbase1'],
+                'transactions': job_data['transactions'],
+                'merkle_root': job_data['merkle_root'],
+                'nbits': job_data['nbits'],
+                'ntime': job_data['ntime'],
+                'clean_jobs': job_data['clean_jobs']
+            }
+        }
+        return response
+
+    def create_mining_set_difficulty_response_v2(self, difficulty):
+        response = {
+            'id': None,
+            'method': 'mining.set_difficulty',
+            'params': {
+                'difficulty': difficulty
+            }
+        }
+        return response
+
+    def create_mining_set_extranonce_response_v2(self, extranonce1, extranonce2_size):
+        response = {
+            'id': None,
+            'method': 'mining.set_extranonce',
+            'params': {
+                'extranonce1': extranonce1,
+                'extranonce2_size': extranonce2_size
+            }
+        }
+        return response
+
