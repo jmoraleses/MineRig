@@ -35,36 +35,41 @@ class StratumPool:
                 # Aceptar conexión entrante
                 client_socket, client_address = server_socket.accept()
                 print(f"Accepted connection from {client_address}")
-                client = StratumClient(client_socket, client_address[0])
+
+                # Crear trabajo a partir de la plantilla
+                process = StratumProcessing(Config.bitcoin, template)
+
+                client = StratumClient(client_socket, client_address[0], process)
                 self.clients.append(client)
+                client.run()
 
                 # Crear sesión Stratum
                 # session = StratumSession(client)
 
-                # Crear trabajo a partir de la plantilla
-                process = StratumProcessing(self, Config.bitcoin, template)
+
                 job = process.create_job_stratum(protocol_version=1)
+                print(job)
 
-                # Crear mensaje mining.notify
-                message = StratumMessage(
-                    method='mining.notify',
-                    params=[
-                        job.job_id,
-                        job.prevhash,
-                        job.coinb1,
-                        job.coinb2,
-                        job.merkle_branches,
-                        job.version,
-                        job.nbits,
-                        job.ntime,
-                        True
-                    ]
-                )
-                print(message)
-
-                # Enviar mensaje mining.notify a todos los clientes
-                for client in self.clients:
-                    client.send(message)
+                # # Crear mensaje mining.notify
+                # message = StratumMessage(
+                #     method='mining.notify',
+                #     params=[
+                #         job.job_id,
+                #         job.prevhash,
+                #         job.coinb1,
+                #         job.coinb2,
+                #         job.merkle_branches,
+                #         job.version,
+                #         job.nbits,
+                #         job.ntime,
+                #         True
+                #     ]
+                # )
+                # print(message)
+                #
+                # # Enviar mensaje mining.notify a todos los clientes
+                # for client in self.clients:
+                #     client.send(message)
 
                 # Ejecutar cliente en segundo plano
                 asyncio.create_task(client.run())

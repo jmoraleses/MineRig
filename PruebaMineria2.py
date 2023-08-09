@@ -10,18 +10,18 @@ def connect(host, port):
     # Enviar mensaje de inicio de sesión
     message = {
         'jsonrpc': '2.0',
-        'method': 'login',
+        'method': 'authorize',
         'params': {
-            'session_id': 'my_session_id',
-            'user_id': 'my_user_id',
-            'auth_token': 'my_auth_token'
+            'session_id': '6',
+            'user_id': 'jmorales',
+            'auth_token': 'x'
         },
         'id': 1
     }
     client_socket.sendall(json.dumps(message).encode())
 
     # Recibir respuesta del servidor Stratum
-    data = client_socket.recv(1024).decode()
+    data = client_socket.recv(4096).decode()
     response = json.loads(data)
     print(response)
 
