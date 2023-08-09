@@ -307,6 +307,6 @@ class StratumProcessing:
             submission = self.block_make_submit(self.transactions)
             # result = self.rpc_submitblock(submission)
             return submission
-        else:
-            print("Bloque no aceptado")
+        # else:
+        #     print("Bloque no aceptado")
         return False
