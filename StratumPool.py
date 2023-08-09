@@ -50,5 +50,5 @@ class StratumPool:
 
 
 if __name__ == '__main__':
-    pool = StratumPool('localhost', 3333)
+    pool = StratumPool(Config.get_url_stratum(), Config.get_port_stratum())
     asyncio.run(pool.start())

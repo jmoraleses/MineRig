@@ -23,6 +23,7 @@ def get_url_stratum():
 
 def get_port_stratum():
     return config['Pool']['PORT_STRATUM']
+
 def get_worker_password():
     return config['Pool']['PASS_WORKER']
 
@@ -31,6 +32,7 @@ def get_wallet_address():
 
 def get_extranonce():
     return config['Stratum']['extranonce']
+
 def get_difficulty_target():
     return int(config['Stratum']['diff_1_target'], 0)
 
