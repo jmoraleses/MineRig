@@ -41,10 +41,10 @@ class StratumPool:
 
                     client = StratumClient(client_socket, client_address[0], process)
                     self.clients.append(client)
-                    client.run()
+                    # client.run()
 
                     # Ejecutar cliente en segundo plano
-                    asyncio.create_task(client.run())
+                    await asyncio.create_task(client.run())
 
     def stop(self):
         for client in self.clients:

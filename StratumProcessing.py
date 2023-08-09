@@ -343,6 +343,7 @@ class StratumProcessing:
 
     def block_validate(self, ntime, nonce):
         self.ntime = ntime
+        self.nonce = nonce
         merkle = []
         for tx in self.transactions:
             while tx.get('hash') is None:
@@ -351,10 +352,10 @@ class StratumProcessing:
         # print(merkle)
         self.merkleroot = self.tx_compute_merkle_root(merkle)
         block_header_raw = self.block_make_header()
-        block_header = block_header_raw[0:76] + nonce.to_bytes(4, byteorder='little')
+        block_header = block_header_raw[0:76] + self.nonce.to_bytes(4, byteorder='little')
         block_hash = self.block_compute_raw_hash(block_header)
         if block_hash < self.target:
-            self.nonce = nonce
+            # self.nonce = nonce
             self.hash = block_hash.hex()
             print("Solved a block! Block hash: {}".format(self.hash))
             submission = self.block_make_submit(self.transactions)

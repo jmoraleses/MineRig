@@ -17,28 +17,36 @@ class StratumClient:
 
     def receive(self):
         data = self.socket.recv(1024).decode()
-        return json.loads(data)
+        if data is not None:
+            return json.loads(data)
+        return None
 
     def close(self):
         self.socket.close()
 
-    def run(self):
+    async def run(self):
         while True:
-            message = self.receive()
-            print("Mensaje recibido: {}".format(message))
+            try:
+                message = self.receive()
 
-            # Gestionamos la salida dado el mensaje entrante
-            response = self.handle_stratum_message(message)
+                if message is not None:
+                    print("Mensaje recibido: {}".format(message))
 
-            # Convertir la respuesta a formato JSON utilizando StratumMessage
-            response_message = StratumMessage(response)
-            response_json = response_message.to_json()
+                    # Gestionamos la salida dado el mensaje entrante
+                    response = self.handle_stratum_message(message)
 
-            print("Mensaje enviado: {}".format(response_json))
+                    # Convertir la respuesta a formato JSON utilizando StratumMessage
+                    response_message = StratumMessage(response)
+                    response_json = response_message.to_json()
 
-            # Enviar la respuesta
-            self.send(response_json)
-            print()
+                    print("Mensaje enviado: {}".format(response_json))
+
+                    # Enviar la respuesta
+                    self.send(response_json)
+                    print()
+            except:
+                return None
+
 
     def handle_stratum_message(self, message):
         response = None
@@ -84,6 +92,7 @@ class StratumClient:
             extranonce2 = params[2]
             ntime = params[3]
             nonce = params[4]
+
             response = self.handle_mining_submit(worker, job_id, extranonce2, ntime, nonce)
 
         elif method == 'mining.authorize':
