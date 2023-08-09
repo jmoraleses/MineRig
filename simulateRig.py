@@ -64,7 +64,7 @@ def connect_to_stratum_server(host, port, username, password):
         job_id = "123"
         extranonce2 = "05f812a5"
         ntime = 1691342182
-        nonce = 152452 #"052f64a3"
+        nonce = 152452
         submit_solution(client_sock, username, job_id, extranonce2, ntime, nonce)
 
 if __name__ == '__main__':

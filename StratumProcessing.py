@@ -287,60 +287,6 @@ class StratumProcessing:
                 'clean_jobs': clean_jobs
             }
 
-    #
-    # def create_job_stratum(self, protocol_version, prevhash, version, nbits, ntime):
-    #     # Seleccionar transacciones aleatorias
-    #     transactions = self.select_random_transactions(self.transactions)
-    #
-    #     # Crear la transacción coinbase
-    #     coinbase_tx = {}
-    #     transactions.insert(0, coinbase_tx)
-    #     coinbase_message = ('SOLO Mined').encode().hex()
-    #     coinbase_script = self.to_coinbase_script(coinbase_message) + self.int2lehex(0, 4)  # extranonce
-    #     coinbase1 = self.tx_make_coinbase(coinbase_script)
-    #
-    #     # Crear la segunda parte de la transacción coinbase
-    #     coinbase2 = "0"
-    #
-    #     # Crear la raíz Merkle de las transacciones
-    #     merkle = []
-    #     for tx in transactions:
-    #         while tx.get('hash') is None:
-    #             pass
-    #         merkle.append(tx['hash'])
-    #     merkleroot = self.tx_compute_merkle_root(merkle)
-    #
-    #     # Crear el trabajo de minería
-    #     job_id = random.randint(0, 1000000)
-    #
-    #     clean_jobs = True
-    #
-    #     # Devolver las variables importantes
-    #     if protocol_version == 2:
-    #         return {
-    #             'job_id': job_id,
-    #             'prevhash': prevhash,
-    #             'coinb1': coinbase1,
-    #             'coinb2': coinbase2,
-    #             'merkle_branches': merkleroot,
-    #             'version': version,
-    #             'nbits': nbits,
-    #             'ntime': ntime,
-    #             'clean_jobs': clean_jobs
-    #         }
-    #     else:
-    #         return {
-    #             'job_id': job_id,
-    #             'version': version,
-    #             'prevhash': prevhash,
-    #             'coinbase1': coinbase1,
-    #             'transactions': transactions,
-    #             'merkle_root': merkleroot,
-    #             'nbits': nbits,
-    #             'ntime': ntime,
-    #             'clean_jobs': clean_jobs
-    #         }
-
     def block_validate(self, ntime, nonce):
         self.ntime = ntime
         self.nonce = nonce
