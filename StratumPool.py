@@ -30,19 +30,21 @@ class StratumPool:
                 # Obtener plantilla de bloque en segundo plano
                 template = await fetcher.get_block_template()
 
-                # Aceptar conexión entrante
-                client_socket, client_address = server_socket.accept()
-                print(f"Accepted connection from {client_address}")
+                if template is not None:
 
-                # Crear trabajo a partir de la plantilla
-                process = StratumProcessing(Config.bitcoin, template)
+                    # Aceptar conexión entrante
+                    client_socket, client_address = server_socket.accept()
+                    print(f"Accepted connection from {client_address}")
 
-                client = StratumClient(client_socket, client_address[0], process)
-                self.clients.append(client)
-                client.run()
+                    # Crear trabajo a partir de la plantilla
+                    process = StratumProcessing(Config.bitcoin, template)
 
-                # Ejecutar cliente en segundo plano
-                asyncio.create_task(client.run())
+                    client = StratumClient(client_socket, client_address[0], process)
+                    self.clients.append(client)
+                    client.run()
+
+                    # Ejecutar cliente en segundo plano
+                    asyncio.create_task(client.run())
 
     def stop(self):
         for client in self.clients:
@@ -50,5 +52,5 @@ class StratumPool:
 
 
 if __name__ == '__main__':
-    pool = StratumPool(Config.get_url_stratum(), Config.get_port_stratum())
+    pool = StratumPool(Config.get_url_stratum(), int(Config.get_port_stratum()))
     asyncio.run(pool.start())

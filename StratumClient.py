@@ -3,14 +3,12 @@ import random
 
 import Config
 from StratumMessage import StratumMessage
-from StratumSession import StratumSession
 
 
 class StratumClient:
     def __init__(self, socket, address, process):
         self.socket = socket
         self.address = address
-        self.session = StratumSession(self)
         self.stratum_processing = process
 
     def send(self, message):
@@ -32,7 +30,7 @@ class StratumClient:
             response = self.handle_stratum_message(message)
 
             # Convertir la respuesta a formato JSON utilizando StratumMessage
-            response_message = StratumMessage(response['method'], response['params'], response['id'])
+            response_message = StratumMessage(response[1], response[2], response[0])
             response_json = response_message.to_json()
 
             print("Mensaje enviado: {}".format(response_json))
@@ -40,31 +38,12 @@ class StratumClient:
             # Enviar la respuesta
             self.send(response_json)
 
-
-    # def handle_stratum_message(self, message):
-    #     version = message.get('version')
-    #
-    #     if version == 'Stratum/1.0.0' or version is None:
-    #         return self.handle_stratum_v1(message)
-    #     elif version == 'Stratum/2.0.0':
-    #         return self.handle_stratum_v2(message)
-    #     else:
-    #         response = {
-    #             'jsonrpc': '2.0',
-    #             'error': {
-    #                 'code': -32600,
-    #                 'message': 'Versión no soportada'
-    #             },
-    #             'id': None
-    #         }
-    #         return response
-
     def handle_stratum_message(self, message):
         if 'jsonrpc' in message:
             version = message['jsonrpc']
             if version == '2.0':
-                return self.handle_stratum_v2(message)
-        return self.handle_stratum_v1(message)
+                return json.dumps(self.handle_stratum_v2(message))
+        return json.dumps(self.handle_stratum_v1(message))
 
     def handle_stratum_v1(self, message):
         method = message['method']
