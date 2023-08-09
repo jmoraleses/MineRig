@@ -2,6 +2,7 @@ import json
 import random
 
 import Config
+from BlockTemplateFetcher import BlockTemplateFetcher
 from StratumMessage import StratumMessage
 
 
@@ -30,24 +31,29 @@ class StratumClient:
             response = self.handle_stratum_message(message)
 
             # Convertir la respuesta a formato JSON utilizando StratumMessage
-            response_message = StratumMessage(response[1], response[2], response[0])
+            response_message = StratumMessage(response)
             response_json = response_message.to_json()
 
             print("Mensaje enviado: {}".format(response_json))
 
             # Enviar la respuesta
             self.send(response_json)
+            print()
 
     def handle_stratum_message(self, message):
+        response = None
         if 'jsonrpc' in message:
             version = message['jsonrpc']
             if version == '2.0':
-                return json.dumps(self.handle_stratum_v2(message))
-        return json.dumps(self.handle_stratum_v1(message))
+                response = self.handle_stratum_v2(message)
+        else:
+            response = self.handle_stratum_v1(message)
+        return response
 
     def handle_stratum_v1(self, message):
         method = message['method']
-        # params = message['params']
+        params = message['params']
+        response = None
 
         if method == 'mining.subscribe':
             subscription_id_1 = random.randint(1, 100000)
@@ -69,10 +75,22 @@ class StratumClient:
             extranonce2_size = Config.get_difficulty_target()
             response = self.create_mining_set_extranonce_response(extranonce1, extranonce2_size)
 
-        else:
-            response = {'error': 'Unknown method'}
+        elif method == 'mining.get_transactions':
+            response = self.handle_mining_get_transactions()
 
-        print(response)
+        elif method == 'mining.submit':
+            worker = params[0]
+            job_id = params[1]
+            extranonce2 = params[2]
+            ntime = params[3]
+            nonce = params[4]
+            response = self.handle_mining_submit(worker, job_id, extranonce2, ntime, nonce)
+
+        elif method == 'mining.authorize':
+            worker = params[0]
+            password = params[1]
+            response = self.handle_mining_authorize(worker, password)
+
         return response
 
 
@@ -131,9 +149,64 @@ class StratumClient:
         }
         return response
 
+    def handle_mining_get_transactions(self):
+        transactions = self.stratum_processing.select_random_transactions()  # Obtener las transacciones desde la base de datos
+        response = {
+            'result': transactions,
+            'error': None,
+            'id': None
+        }
+        return response
+
+    def handle_mining_submit(self, worker, job_id, extranonce2, ntime, nonce):
+        is_sent = False
+
+        # Verificar si el resultado es válido
+        block_submission = self.stratum_processing.block_validate(ntime, nonce)
+        if block_submission is not False:
+            is_sent = BlockTemplateFetcher.submitblock(block_submission)
+
+        if is_sent:
+            response = {
+                'result': True,
+                'error': None,
+                'id': None
+            }
+        else:
+            response = {
+                'result': False,
+                'error': 'Invalid result',
+                'id': None
+            }
+
+        return response
+
+    def handle_mining_authorize(self, worker, password):
+        # Verificar las credenciales del trabajador
+        if self.verify_worker_credentials(worker, password):
+            response = {
+                'result': True,
+                'error': None,
+                'id': None
+            }
+        else:
+            response = {
+                'result': False,
+                'error': 'Invalid credentials',
+                'id': None
+            }
+
+        return response
+
+    def verify_worker_credentials(self, worker, password):
+        if worker == Config.get_worker() and password == Config.get_worker_password():
+            return True
+        return False
 
     def handle_stratum_v2(self, message):
         method = message['method']
+        params = message['params']
+        response = None
 
         if method == 'mining.subscribe':
             subscription_id_1 = random.randint(1, 100000)
@@ -155,10 +228,22 @@ class StratumClient:
             extranonce2_size = Config.get_difficulty_target()
             response = self.create_mining_set_extranonce_response_v2(extranonce1, extranonce2_size)
 
-        else:
-            response = {'error': 'Unknown method'}
+        elif method == 'mining.get_transactions':
+            response = self.handle_mining_get_transactions_v2()
 
-        print(response)
+        elif method == 'mining.submit':
+            worker = params[0]
+            job_id = params[1]
+            extranonce2 = params[2]
+            ntime = params[3]
+            nonce = params[4]
+            response = self.handle_mining_submit(worker, job_id, extranonce2, ntime, nonce)
+
+        elif method == 'mining.authorize':
+            worker = params[0]
+            password = params[1]
+            response = self.handle_mining_authorize(worker, password)
+
         return response
 
     def create_subscribe_response_v2(self, id, subscription_id_1, subscription_id_2, extranonce1, extranonce2_size):
@@ -212,3 +297,13 @@ class StratumClient:
         }
         return response
 
+    def handle_mining_get_transactions_v2(self):
+        transactions = self.stratum_processing.select_random_transactions()  # Obtener las transacciones desde la base de datos
+        response = {
+            'id': None,
+            'method': 'mining.get_transactions',
+            'params': {
+                'transactions': transactions
+            }
+        }
+        return response

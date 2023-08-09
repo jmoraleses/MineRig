@@ -200,7 +200,7 @@ class StratumProcessing:
 
         return submission
 
-    def select_random_transactions(self, transactions):
+    def select_random_transactions(self):
         """Selecciona transacciones hasta que el tamaño total esté entre 220,000 y 280,000 bytes."""
 
         # Límites de tamaño en bytes
@@ -208,14 +208,14 @@ class StratumProcessing:
         max_size_limit = random.randint(240, 300) * 1024  # Valor aleatorio entre 280 KB y 360 KB
 
         # Mezcla las transacciones para garantizar un orden aleatorio
-        random.shuffle(transactions)
+        random.shuffle(self.transactions)
 
         # Transacciones seleccionadas
         selected_transactions = []
         # Tamaño total de las transacciones seleccionadas
         total_size = 0
 
-        for transaction in transactions:
+        for transaction in self.transactions:
             transaction_size = transaction['weight']
             projected_size = total_size + transaction_size
             # Agrega la transacción si el tamaño proyectado está dentro de los límites
@@ -230,6 +230,7 @@ class StratumProcessing:
             elif total_size >= min_size_limit:
                 break
 
+        self.transactions = selected_transactions
         return selected_transactions
 
     def create_job_stratum(self, protocol_version):
@@ -340,10 +341,10 @@ class StratumProcessing:
     #             'clean_jobs': clean_jobs
     #         }
 
-    def block_validate(self, transactions, ntime, nonce):
+    def block_validate(self, ntime, nonce):
         self.ntime = ntime
         merkle = []
-        for tx in transactions:
+        for tx in self.transactions:
             while tx.get('hash') is None:
                 pass
             merkle.append(tx['hash'])
@@ -356,7 +357,7 @@ class StratumProcessing:
             self.nonce = nonce
             self.hash = block_hash.hex()
             print("Solved a block! Block hash: {}".format(self.hash))
-            submission = self.block_make_submit(transactions)
+            submission = self.block_make_submit(self.transactions)
             # result = self.rpc_submitblock(submission)
             return submission
         else:

@@ -34,7 +34,7 @@ class StratumPool:
 
                     # Aceptar conexión entrante
                     client_socket, client_address = server_socket.accept()
-                    print(f"Accepted connection from {client_address}")
+                    print(f"Accepted connection from {client_address}\n")
 
                     # Crear trabajo a partir de la plantilla
                     process = StratumProcessing(Config.bitcoin, template)
