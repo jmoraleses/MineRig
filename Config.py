@@ -1,7 +1,7 @@
 import configparser
 
 config = configparser.ConfigParser()
-config.read('config.ini')
+config.read('config.cfg')
 
 def get_bitcoin_url():
     return config['Bitcoin']['url']
