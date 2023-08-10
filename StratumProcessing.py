@@ -10,7 +10,6 @@ class StratumProcessing:
     def __init__(self, coin, block_template_fetcher):
 
         self.coin = coin
-        self.target = self.block_bits2target(block_template_fetcher['bits'])
         self.version = block_template_fetcher['version']
         self.prevhash = block_template_fetcher['previousblockhash']
         self.transactions = block_template_fetcher['transactions']
@@ -18,6 +17,7 @@ class StratumProcessing:
         self.nbits = block_template_fetcher['bits']
         self.ntime = block_template_fetcher['curtime']
         self.height = block_template_fetcher['height']
+        self.target = self.block_bits2target()
         self.merkleroot = None
         self.nonce = None
         self.hash = None
@@ -56,7 +56,7 @@ class StratumProcessing:
 
         return value.to_bytes(width, byteorder='little').hex()
 
-    def block_bits2target(self, bits):
+    def block_bits2target(self):
         """
         Convert compressed target (block bits) encoding to target value.
         Arguments:
@@ -68,7 +68,7 @@ class StratumProcessing:
         # Bits: 1b0404cb
         #       1b          left shift of (0x1b - 3) bytes
         #         0404cb    value
-        bits = bytes.fromhex(bits)
+        bits = bytes.fromhex(self.nbits)
         shift = bits[0] - 3
         value = bits[1:]
 

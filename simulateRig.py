@@ -7,7 +7,7 @@ PORT = 3333
 def receive_json(client_sock):
     buffer = ""
     while True:
-        chunk = client_sock.recv(4096).decode('utf-8')
+        chunk = client_sock.recv(1024).decode('utf-8')
         if not chunk:
             break
         buffer += chunk

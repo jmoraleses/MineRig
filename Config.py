@@ -36,6 +36,9 @@ def get_extranonce():
 def get_difficulty_target():
     return int(config['Stratum']['diff_1_target'], 0)
 
+def get_nonce():
+    return config['Stratum']['nonce']
+
 def create_coin(name, symbol, algorithm):
     return {'name': name, 'symbol': symbol, 'algorithm': algorithm}
 
