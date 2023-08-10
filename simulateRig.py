@@ -60,6 +60,8 @@ def connect_to_stratum_server(host, port, username, password):
         client_sock.connect((host, port))
         subscribe(client_sock)
         authorize(client_sock, username, password)
+        response = receive_json(client_sock)
+        print("Respuesta de autorización:", response)
         # Simulando la presentación de una solución
         job_id = "123"
         extranonce2 = "05f812a5"

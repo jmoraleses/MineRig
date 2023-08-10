@@ -30,8 +30,11 @@ def get_worker_password():
 def get_wallet_address():
     return config['Wallet']['address']
 
-def get_extranonce():
-    return config['Stratum']['extranonce']
+def get_extranonce1():
+    return config['Stratum']['extranonce1']
+
+def get_extranonce2():
+    return config['Stratum']['extranonce2']
 
 def get_difficulty_target():
     return int(config['Stratum']['diff_1_target'], 0)

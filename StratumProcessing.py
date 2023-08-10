@@ -236,7 +236,7 @@ class StratumProcessing:
     def create_job_stratum(self, protocol_version):
 
         # Seleccionar transacciones aleatorias
-        transactions = self.select_random_transactions(self.transactions)
+        transactions = self.select_random_transactions()
 
         # Crear la transacción coinbase
         coinbase_tx = {}
@@ -246,14 +246,17 @@ class StratumProcessing:
         coinbase1 = self.tx_make_coinbase(coinbase_script)
 
         # Crear la segunda parte de la transacción coinbase
-        coinbase2 = "0"
+        # Calcula coinbase2
+        coinbase2 = hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex() ###
 
         # Crear la raíz Merkle de las transacciones
         merkle = []
         for tx in transactions:
-            while tx.get('hash') is None:
+            if tx.get('hash') is None:
                 pass
-            merkle.append(tx['hash'])
+            else:
+                merkle.append(tx['hash'])
+
         self.merkleroot = self.tx_compute_merkle_root(merkle)
 
         # Crear el trabajo de minería
@@ -292,9 +295,10 @@ class StratumProcessing:
         self.nonce = nonce
         merkle = []
         for tx in self.transactions:
-            while tx.get('hash') is None:
+            if tx.get('hash') is None:
                 pass
-            merkle.append(tx['hash'])
+            else:
+                merkle.append(tx['hash'])
         # print(merkle)
         self.merkleroot = self.tx_compute_merkle_root(merkle)
         block_header_raw = self.block_make_header()
