@@ -31,7 +31,7 @@ def get_wallet_address():
     return config['Wallet']['address']
 
 def get_extranonce1():
-    return config['Stratum']['extranonce1']
+    return config['Stratum']['extranonce1_fixed']
 
 def get_extranonce2():
     return config['Stratum']['extranonce2']
