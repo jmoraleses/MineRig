@@ -14,22 +14,25 @@ class StratumPool:
         self.clients = []
 
     async def start(self):
-        # Crear instancia de BlockTemplateFetcher
-        fetcher = BlockTemplateFetcher(Config.get_bitcoin_url(), Config.get_bitcoin_username(),
-                                       Config.get_bitcoin_password())
 
-        # Bucle principal
-        while True:
+        # Crear un bucle de eventos
+        loop = asyncio.get_event_loop()
 
-            # Crear servidor Stratum
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        # Obtener el bucle de eventos de asyncio
+        # loop = asyncio.get_running_loop()
 
-                server_socket.bind((self.host, self.port))
-                server_socket.listen()
-                print(f"Listening on {self.host}:{self.port}")
+        # Crear servidor Stratum
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
 
-                # Obtener plantilla de bloque en segundo plano
-                template = await fetcher.get_block_template()
+            server_socket.bind((self.host, self.port))
+            server_socket.listen()
+            print(f"Listening on {self.host}:{self.port}")
+
+            # Bucle principal
+            while True:
+
+                # Obtener la plantilla block_template en segundo plano
+                template = await loop.create_task(self.fetch_block_template())
 
                 if template is not None:
 
@@ -43,18 +46,31 @@ class StratumPool:
                     # Crear trabajo a partir de la plantilla
                     process = StratumProcessing(Config.bitcoin, template)
 
-                    client = StratumClient(client_socket, client_address, process)
+                    client = StratumClient(client_socket, client_address, process, loop)
                     self.clients.append(client)
 
                     # Ejecutar cliente en segundo plano
-                    await asyncio.create_task(client.run())
+                    await client.run()
 
-                    client.close()
-                    self.clients.remove(client)
+                    # client.close()
+                    # self.clients.remove(client)
 
-    def stop(self):
+    async def fetch_block_template(self):
+        while True:
+            await asyncio.sleep(0.2)
+            # Crear instancia de BlockTemplateFetcher
+            fetcher = BlockTemplateFetcher(Config.get_bitcoin_url(), Config.get_bitcoin_username(),
+                                           Config.get_bitcoin_password())
+            # Obtener la plantilla de bloque
+            template = await fetcher.get_block_template()
+            return template
+
+    def close_all_clients(self):
         for client in self.clients:
             client.close()
+
+    def stop(self):
+        self.close_all_clients()
 
 
 if __name__ == '__main__':

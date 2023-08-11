@@ -2,6 +2,8 @@ import hashlib
 import random
 import struct
 from binascii import unhexlify
+
+import Config
 from Config import *
 
 
@@ -200,6 +202,11 @@ class StratumProcessing:
 
         return submission
 
+    def calculate_difficulty(self):
+        target_hash = int(Config.get_target_nonce(), 16)
+        difficulty = int(target_hash / (16 ** (8 - Config.get_difficulty_target())))
+        return difficulty
+
     def select_random_transactions(self):
         """Selecciona transacciones hasta que el tamaño total esté entre 220,000 y 280,000 bytes."""
 
@@ -217,6 +224,7 @@ class StratumProcessing:
 
         for transaction in self.transactions:
             transaction_size = transaction['weight']
+
             projected_size = total_size + transaction_size
             # Agrega la transacción si el tamaño proyectado está dentro de los límites
             if min_size_limit <= projected_size <= max_size_limit:

@@ -42,6 +42,9 @@ def get_difficulty_target():
 def get_nonce():
     return config['Stratum']['nonce']
 
+def get_target_nonce():
+    return config['Stratum']['target_nonce']
+
 def create_coin(name, symbol, algorithm):
     return {'name': name, 'symbol': symbol, 'algorithm': algorithm}
 
