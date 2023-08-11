@@ -1,7 +1,7 @@
 import socket
 import json
 
-HOST = 'localhost'
+HOST = '127.0.0.1'
 PORT = 3333
 
 def receive_json(client_sock):
@@ -71,4 +71,4 @@ def connect_to_stratum_server(host, port, username, password):
 
 if __name__ == '__main__':
     print("Iniciando rig de minería...")
-    connect_to_stratum_server(HOST, PORT, "jmorales", "x")
+    connect_to_stratum_server(HOST, PORT, "x", "x")

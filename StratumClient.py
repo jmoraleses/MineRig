@@ -19,12 +19,14 @@ class StratumClient:
     async def run(self):
         # try:
             while True:
-                data = await self.receive()
+                data = self.receive()
 
                 if data:
                     # break
 
-                    message = json.loads(data)
+                    # message = json.loads(data)
+                    message = data
+
                     print("Mensaje recibido: {}".format(message))
 
 
@@ -40,9 +42,24 @@ class StratumClient:
         # except asyncio.CancelledError:
         #     pass
 
-    async def receive(self):
-        data = await self.loop.sock_recv(self.socket, 1024)
-        return data.decode()#.strip()
+    # async def receive(self):
+    #     data = await self.loop.sock_recv(self.socket, 1024)
+    #     return data.decode().strip()
+
+    def receive(self):
+        buffer = ""
+        while True:
+            chunk = self.socket.recv(1024).decode()
+            if not chunk:
+                break
+            buffer += chunk
+            try:
+                message = json.loads(buffer)
+                buffer = ""
+                return message
+            except json.JSONDecodeError:
+                continue
+        return None
 
     async def send(self, data):
         await self.loop.sock_sendall(self.socket, data.encode())
@@ -107,12 +124,12 @@ class StratumClient:
             password = params[1]
             response = self.handle_mining_authorize(id, worker, password)
             response_json = json.dumps(response)
-            print("Mensaje enviado: {}".format(response_json))
+            print("Mensaje enviado: {}".format(response))
             self.socket.sendall(response_json.encode())
             job_data = self.process.create_job_stratum(protocol_version=1)
             response = self.create_mining_notify_response(job_data)
-            response_json = json.dumps(response)
-            print("Mensaje enviado: {}".format(response_json))
+            # response_json = json.dumps(response)
+            print("Mensaje enviado: {}".format(response))
         return response
 
     def create_subscribe_response(self, id, name):
