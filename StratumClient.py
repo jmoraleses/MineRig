@@ -8,49 +8,35 @@ import shortuuid as shortuuid
 import Config
 from BlockTemplateFetcher import BlockTemplateFetcher
 from StratumMessage import StratumMessage
+from StratumProcessing import StratumProcessing
+
 
 class StratumClient:
-    def __init__(self, socket, address, process, loop):
+    def __init__(self, socket, process):
         self.socket = socket
-        self.address = address
         self.process = process
-        self.loop = loop
+        # self.loop = loop
 
     async def run(self):
-        # try:
-        #     while True:
-                data = self.receive()
 
-                if data:
-                    # break
+        data = self.receive()
 
-                    # message = json.loads(data)
-                    message = data
+        if data:
 
-                    print("Mensaje recibido: {}".format(message))
+            message = data
+
+            print("Mensaje recibido: {}".format(message))
 
 
-                    # Procesar los datos recibidos
-                    response = self.handle_stratum_v1(message)
+            # Procesar los datos recibidos
+            response = self.handle_stratum_v1(message)
 
-                    response = json.dumps(response)
+            response = json.dumps(response)
 
-                    # Enviar respuesta al cliente
-                    await self.send(response)
-                # else:
-                #     break
-        # except asyncio.CancelledError:
-        #     pass
+            # Enviar respuesta al cliente
+            await self.send(response)
 
-    # async def receive(self):
-    #     data = await self.loop.sock_recv(self.socket, 1024)
-    #     return data.decode().strip()
-    def receive(self):
-        try:
-            chunk = self.socket.recv(1024).decode()
-        except ConnectionAbortedError as e:
-            # Manejar la excepción aquí
-            print("La conexión ha sido anulada por el software en el equipo host.")
+
 
     def receive(self):
         buffer = ""
@@ -74,7 +60,7 @@ class StratumClient:
         return None
 
     async def send(self, data):
-        await self.loop.sock_sendall(self.socket, data.encode())
+        self.socket.sendall(data.encode())
 
     def close(self):
         self.socket.close()
@@ -150,36 +136,35 @@ class StratumClient:
         # # block_target = self.process.block_bits2target().hex()
         nonce = Config.get_nonce()
         extranonce1 = Config.get_extranonce1()  # Este valor es fijo
-        difficulty = self.process.calculate_difficulty()
+        # difficulty = self.process.calculate_difficulty()
+        # response = {
+        #     "id": id,
+        #     "result": [
+        #         name,
+        #         notification_id
+        #     ],
+        #     "error": None
+        # }
+
 
         response = {
-            "id": id,
-            "result": [
-                name,
-                notification_id
+            'result': [
+                [
+                    [
+                        'mining.set_difficulty',
+                        extranonce1
+                    ],
+                    [
+                        'mining.notify',
+                        extranonce1
+                    ]
+                ],
+                nonce,
+                4
             ],
-            "error": None
+            'id': id,
+            'error': None
         }
-
-        #
-        # response = {
-        #     'result': [
-        #         [
-        #             [
-        #                 'mining.set_difficulty',
-        #                 extranonce1
-        #             ],
-        #             [
-        #                 'mining.notify',
-        #                 extranonce1
-        #             ]
-        #         ],
-        #         nonce,
-        #         4
-        #     ],
-        #     'id': id,
-        #     'error': None
-        # }
         return response
 
     def create_mining_notify_response(self, job_data):
@@ -232,6 +217,7 @@ class StratumClient:
         return response
 
     def handle_mining_submit(self, id, ntime, nonce):
+
         # Verificar si el resultado es válido
         block_submission = self.process.block_validate(ntime, nonce)
 

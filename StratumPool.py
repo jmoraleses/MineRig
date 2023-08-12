@@ -34,7 +34,7 @@ class StratumPool:
             # Bucle principal
             # while True:
 
-            if template is not None:
+            if template:
 
                 # Aceptar conexión entrante
                 client_socket, client_address = server_socket.accept()
@@ -46,14 +46,14 @@ class StratumPool:
                 # Crear trabajo a partir de la plantilla
                 process = StratumProcessing(Config.bitcoin, template)
 
-                client = StratumClient(client_socket, client_address, process, loop)
+                client = StratumClient(client_socket, process)
                 self.clients.append(client)
 
                 # Ejecutar cliente en segundo plano
                 await client.run()
 
-                client.close()
-                self.clients.remove(client)
+                # client.close()
+                # self.clients.remove(client)
 
 
     async def fetch_block_template(self):

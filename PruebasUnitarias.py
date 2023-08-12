@@ -2,7 +2,7 @@ import unittest
 import socket
 import json
 
-HOST = '127.0.0.1'
+HOST = '127.0.0.1' #'pool3.ddns.net'
 PORT = 3333
 
 class StratumCommunicationTest(unittest.TestCase):
