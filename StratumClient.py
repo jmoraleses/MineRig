@@ -189,10 +189,21 @@ class StratumClient:
             worker = params[0]
             password = params[1]
             response = self.handle_mining_authorize(worker, password)
-            # print("Mensaje enviado: {}".format(response))
+            print()
+            print("Mensaje enviado: {}".format(response))
+            print()
+            await self.send(response)
 
-            # job_data = self.process.create_job(protocol_version=1)
-            # response = self.create_mining_notify_response(job_data)
+            job_data = self.process.create_job(protocol_version=1)
+            response = self.create_mining_notify_response(job_data)
+            print()
+            print("Mensaje enviado: {}".format(response))
+            print()
+            await self.send(response)
+
+            difficulty = Config.get_difficulty_target()
+            response = self.create_mining_set_difficulty_response(difficulty)
+
 
         return response
 
@@ -265,12 +276,9 @@ class StratumClient:
 
     def create_mining_set_difficulty_response(self, difficulty):
         response = {
-            'id': None,
-            'result': True,
-            'error': None,
-            'params': [
-                difficulty
-            ]
+            "id": None,
+            "method": "mining.set_difficulty",
+            "params": [difficulty]
         }
         return response
 
@@ -321,7 +329,7 @@ class StratumClient:
         # Verificar las credenciales del trabajador
         if self.verify_worker_credentials(worker, password):
             response = {
-                # "id": id,
+                "id": 2,
                 "result": True,
                 "error": None
             }
@@ -329,7 +337,7 @@ class StratumClient:
             response = {
                 'result': False,
                 'error': 'Invalid credentials',
-                # 'id': id
+                'id': 2
             }
 
         return response
