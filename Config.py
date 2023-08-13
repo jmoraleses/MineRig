@@ -36,6 +36,9 @@ def get_extranonce1():
 def get_extranonce2():
     return config['Stratum']['extranonce2']
 
+def extranonce2_size():
+    return config['Stratum']['extranonce2_size']
+
 def get_difficulty_target():
     return int(config['Stratum']['diff_1_target'], 0)
 

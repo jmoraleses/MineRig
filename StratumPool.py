@@ -21,7 +21,7 @@ class StratumPool:
 
 
         # Obtener la plantilla block_template en segundo plano
-        template = await self.fetch_block_template()
+        template, fetcher = await self.fetch_block_template()
 
 
         # Crear servidor Stratum
@@ -46,7 +46,7 @@ class StratumPool:
                 # Crear trabajo a partir de la plantilla
                 process = StratumProcessing(Config.bitcoin, template)
 
-                client = StratumClient(client_socket, process)
+                client = StratumClient(client_socket, process, fetcher)
                 self.clients.append(client)
 
                 # Ejecutar cliente en segundo plano
@@ -62,7 +62,7 @@ class StratumPool:
                                        Config.get_bitcoin_password())
         # Obtener la plantilla de bloque
         template = await fetcher.get_block_template()
-        return template
+        return template, fetcher
 
 
     def close_all_clients(self):
@@ -81,5 +81,3 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
-
-

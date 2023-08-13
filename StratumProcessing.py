@@ -4,6 +4,7 @@ import struct
 from binascii import unhexlify
 
 import Config
+from BlockTemplateFetcher import BlockTemplateFetcher
 from Config import *
 
 
@@ -241,7 +242,7 @@ class StratumProcessing:
         self.transactions = selected_transactions
         return selected_transactions
 
-    def create_job_stratum(self, protocol_version):
+    def create_job(self, protocol_version):
 
         # Seleccionar transacciones aleatorias
         transactions = self.select_random_transactions()
@@ -317,7 +318,7 @@ class StratumProcessing:
             self.hash = block_hash.hex()
             print("Solved a block! Block hash: {}".format(self.hash))
             submission = self.block_make_submit(self.transactions)
-            # result = self.rpc_submitblock(submission)
+            # result = BlockTemplateFetcher.submitblock(submission)
             return submission
         # else:
         #     print("Bloque no aceptado")

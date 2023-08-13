@@ -33,9 +33,11 @@ class BlockTemplateFetcher:
             except ValueError:
                 return {}
 
-    @staticmethod
-    async def submitblock(param: str = None):
-        result = await BlockTemplateFetcher.rpc("submitblock", [param])
+
+    async def submitblock(self, params):
+        result = None
+        if params is not False:
+            result = await self.rpc("submitblock", [params])
         if result:
             return True
         return False
