@@ -53,21 +53,21 @@ class StratumCommunicationTest(unittest.TestCase):
         # self.assertIn("id", response)
         # self.assertEqual(response["id"], 1)
 
-        if "result" in response:
-            # Leer el contenido si existe la clave "result"
-            result = response["result"]
-            # Realizar acciones con el contenido
+        # if "result" in response:
+        #     # Leer el contenido si existe la clave "result"
+        #     result = response["result"]
+        #     # Realizar acciones con el contenido
 
     def test_authorize(self):
-        response = self.send_request("mining.authorize", ["username", "password"])
+        response = self.send_request("mining.authorize", ["x", "x"])
         self.assertIsNotNone(response)
         # self.assertIn("id", response)
         # self.assertEqual(response["id"], 1)
 
-        if "result" in response:
-            # Leer el contenido si existe la clave "result"
-            result = response["result"]
-            # Realizar acciones con el contenido
+        # if "result" in response:
+        #     # Leer el contenido si existe la clave "result"
+        #     result = response["result"]
+        #     # Realizar acciones con el contenido
 
     def test_submit_solution(self):
         response = self.send_request("mining.submit", ["username", "job_id", "extranonce2", 1691342182, 152452])
@@ -75,10 +75,10 @@ class StratumCommunicationTest(unittest.TestCase):
         # self.assertIn("id", response)
         # self.assertEqual(response["id"], 1)
 
-        if "result" in response:
-            # Leer el contenido si existe la clave "result"
-            result = response["result"]
-            # Realizar acciones con el contenido
+        # if "result" in response:
+        #     # Leer el contenido si existe la clave "result"
+        #     result = response["result"]
+        #     # Realizar acciones con el contenido
 
 if __name__ == '__main__':
     unittest.main()

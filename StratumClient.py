@@ -13,15 +13,50 @@ from StratumProcessing import StratumProcessing
 
 
 class StratumClient:
-    def __init__(self, socket, process, fetcher):
-        self.socket = socket
+    def __init__(self, process, fetcher):
+        self.reader = None
+        self.writer = None
         self.process = process
         self.fetcher = fetcher
         # self.loop = loop
 
-    async def run(self):
+    async def handle_miner(self, reader, writer):
 
-        data = self.receive()
+        self.reader = reader
+        self.writer = writer
+
+        addr = writer.get_extra_info('peername')
+        print(f"Conexión desde {addr}")
+        try:
+            # # Register the miner
+            # miner_id = str(addr)  # Or any other unique identifier
+            # connected_miners[miner_id] = writer
+
+            buffer = ""
+            while True:
+
+                data = await reader.read(4 * 4096)
+                if not data:
+                    break
+                buffer += data.decode('ascii')
+                while '\n' in buffer:
+                    line, buffer = buffer.split('\n', 1)
+                    request = json.loads(line)
+
+                    await self.run(writer, request)
+
+        except ConnectionResetError:
+            print("La conexión se ha cerrado inesperadamente.")
+        except Exception as e:
+            print(f"Error: {e}")
+        # finally:
+        # Unregister the miner
+        # del connected_miners[miner_id]
+
+    async def run(self, writer, message):
+
+        # data = self.receive()
+        data = message
 
         if data:
 
@@ -36,39 +71,42 @@ class StratumClient:
             if response:
                 if type(response) is not bool:
 
-                    response = json.dumps(response)
+                    # response = json.dumps(response)
+                    print()
                     print("Mensaje enviado: {}".format(response))
-
+                    print()
                     # Enviar respuesta al cliente
                     await self.send(response)
 
-    def receive(self):
-        buffer = ""
-        while True:
-            chunk = None
-            try:
-                chunk = self.socket.recv(1024).decode()
-            except ConnectionAbortedError as e:
-                # Manejar la excepción aquí
-                print("La conexión ha sido anulada por el software en el equipo host.")
 
-            if not chunk:
-                break
-            buffer += chunk
-            try:
-                message = json.loads(buffer)
-                buffer = ""
-                return message
-            except json.JSONDecodeError:
-                continue
-        return None
+    #
+    # def receive(self):
+    #     buffer = ""
+    #     while True:
+    #         chunk = None
+    #         try:
+    #             chunk = self.socket.recv(1024).decode()
+    #         except ConnectionAbortedError as e:
+    #             # Manejar la excepción aquí
+    #             print("La conexión ha sido anulada por el software en el equipo host.")
+    #
+    #         if not chunk:
+    #             break
+    #         buffer += chunk
+    #         try:
+    #             message = json.loads(buffer)
+    #             buffer = ""
+    #             return message
+    #         except json.JSONDecodeError:
+    #             continue
+    #     return None
 
-    async def send(self, data):
-        self.socket.sendall(data.encode())
+    async def send(self, response):
+        self.writer.write(json.dumps(response).encode('ascii') + b'\n')
 
-    def close(self):
-        self.socket.close()
-
+    # def close(self):
+    #     self.socket.close()
+    #
 
 
     def handle_stratum_message(self, message):
@@ -80,7 +118,7 @@ class StratumClient:
         #         pass
         # else:
         #     response = self.handle_stratum_v1(message)
-        response = self.handle_stratum_v2(message)
+        response = self.handle_stratum_v1(message)
         return response
 
     # async def handle_stratum_v1_send(self, message):
@@ -122,7 +160,7 @@ class StratumClient:
             # print("Mensaje enviado: {}".format(response))
 
         elif method == 'mining.notify':
-            job_data = self.process.create_job_stratum(protocol_version=1)
+            job_data = self.process.create_job(protocol_version=1)
             response = self.create_mining_notify_response(job_data)
             # print("Mensaje enviado: {}".format(response))
 
@@ -152,6 +190,10 @@ class StratumClient:
             password = params[1]
             response = self.handle_mining_authorize(worker, password)
             # print("Mensaje enviado: {}".format(response))
+
+            # job_data = self.process.create_job(protocol_version=1)
+            # response = self.create_mining_notify_response(job_data)
+
         return response
 
     def create_subscribe(self, message):
@@ -165,7 +207,11 @@ class StratumClient:
         nonce = Config.get_nonce()
         extranonce1 = Config.get_extranonce1()  # Este valor es fijo
         # difficulty = self.process.calculate_difficulty()
-
+        # response = {
+        #     "id": 1,
+        #     "result": True,
+        #     "error": None
+        # }
         response = {
             'id': id,
             'result': [
@@ -184,6 +230,19 @@ class StratumClient:
             ],
             'error': None
         }
+        # response = {
+        #     "id": id,
+        #     "result": [
+        #         [
+        #             ["mining.notify", extranonce1],
+        #             0,
+        #             45
+        #         ],
+        #         "00000000000000000000000000000000",
+        #         4
+        #     ],
+        #     "error": None
+        # }
         return response
 
     def create_mining_notify_response(self, job_data):
@@ -294,7 +353,7 @@ class StratumClient:
             response = self.create_subscribe_response_v2(1, subscription_id_1, subscription_id_2, extranonce2, extranonce2_size)
 
         elif method == 'mining.notify':
-            job_data = self.process.create_job_stratum(protocol_version=2)
+            job_data = self.process.create_job(protocol_version=2)
             response = self.create_mining_notify_response_v2(job_data)
 
         elif method == 'mining.set_difficulty':
