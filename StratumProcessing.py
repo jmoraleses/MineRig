@@ -224,7 +224,9 @@ class StratumProcessing:
         total_size = 0
 
         for transaction in self.transactions:
-            transaction_size = transaction['weight']
+            transaction_size = 0
+            if transaction['weight']:
+                transaction_size = transaction['weight']
 
             projected_size = total_size + transaction_size
             # Agrega la transacción si el tamaño proyectado está dentro de los límites
@@ -256,7 +258,7 @@ class StratumProcessing:
 
         # Crear la segunda parte de la transacción coinbase
         # Calcula coinbase2
-        coinbase2 = hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex() ###
+        coinbase2 = "0" #hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex() ###
 
         # Crear la raíz Merkle de las transacciones
         merkle = []

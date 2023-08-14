@@ -1,8 +1,8 @@
 import json
 import random
+import time
 
 import requests
-
 
 class BlockTemplateFetcher:
     def __init__(self, url, username, password):
@@ -27,6 +27,7 @@ class BlockTemplateFetcher:
         return response['result']
 
     async def get_block_template(self):
+        time.sleep(0.5)
         while True:
             try:
                 return await self.rpc("getblocktemplate", [{"rules": ["segwit"]}])
