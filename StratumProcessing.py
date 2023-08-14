@@ -225,21 +225,22 @@ class StratumProcessing:
 
         for transaction in self.transactions:
             transaction_size = 0
-            if transaction['weight']:
-                transaction_size = transaction['weight']
+            if transaction:
+                if transaction['weight']:
+                    transaction_size = transaction['weight']
 
-            projected_size = total_size + transaction_size
-            # Agrega la transacción si el tamaño proyectado está dentro de los límites
-            if min_size_limit <= projected_size <= max_size_limit:
-                selected_transactions.append(transaction)
-                total_size += transaction_size
-            # Si no hemos alcanzado el tamaño mínimo, agrega la transacción incluso si excede el tamaño máximo
-            elif total_size < min_size_limit:
-                selected_transactions.append(transaction)
-                total_size += transaction_size
-            # Una vez que hemos alcanzado o superado el tamaño mínimo, podemos dejar de agregar transacciones
-            elif total_size >= min_size_limit:
-                break
+                    projected_size = total_size + transaction_size
+                    # Agrega la transacción si el tamaño proyectado está dentro de los límites
+                    if min_size_limit <= projected_size <= max_size_limit:
+                        selected_transactions.append(transaction)
+                        total_size += transaction_size
+                    # Si no hemos alcanzado el tamaño mínimo, agrega la transacción incluso si excede el tamaño máximo
+                    elif total_size < min_size_limit:
+                        selected_transactions.append(transaction)
+                        total_size += transaction_size
+                    # Una vez que hemos alcanzado o superado el tamaño mínimo, podemos dejar de agregar transacciones
+                    elif total_size >= min_size_limit:
+                        break
 
         self.transactions = selected_transactions
         return selected_transactions
@@ -273,7 +274,7 @@ class StratumProcessing:
         # Crear el trabajo de minería
         job_id = random.randint(0, 1000000)
 
-        clean_jobs = True
+        clean_jobs = False
 
         # Devolver las variables importantes
         if protocol_version == 2:

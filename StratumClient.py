@@ -35,36 +35,45 @@ class StratumClient:
         # Register the miner
         miner_id = str(addr)  # Or any other unique identifier
         self.connected_miners[miner_id] = writer
-        ini = -10
+        ini = 0
         buffer = ""
+
+        print("template:")
+        self.template = await self.fetcher.get_block_template()
+        self.process = StratumProcessing(Config.bitcoin, self.template)
+        print("create job")
+        job_data = self.process.create_job(1)
         while True:
             try:
-                data = await reader.read(4 * 1024)
+                data = await reader.read(4096)
                 if not data:
                     break
-                buffer += data.decode()
+                buffer += data.decode('utf-8')
                 while '\n' in buffer:
                     line, buffer = buffer.split('\n', 1)
                     request = json.loads(line)
 
-
                     await self.run(writer, request)
 
+                    fin = time.time()
+                    transcurrido = fin - ini
+
+                    if transcurrido > 60:
+                        print("template:")
+                        self.template = await self.fetcher.get_block_template()
+                        self.process = StratumProcessing(Config.bitcoin, self.template)
+                        print("create job")
+                        job_data = self.process.create_job(1)
+                        # print("¡template")
+                        ini = time.time()
+
+                    # Enviar difficulty
                     difficulty = Config.get_difficulty_target()
                     response = self.create_mining_set_difficulty_response(difficulty)
                     await self.send(response)
                     print("Mensaje enviado: {}".format(response))
-                    fin = time.time()
-                    transcurrido = fin - ini
 
-                    if transcurrido > 10:
-                        print("template!")
-                        self.template = await self.fetcher.get_block_template()
-                        self.process = StratumProcessing(Config.bitcoin, self.template)
-                        ini = time.time()
-
-
-                    job_data = self.process.create_job(1)
+                    # Enviar trabajo
                     response = self.create_mining_notify_response(job_data)
                     await self.send(response)
                     print("Mensaje enviado: Notify")
@@ -184,11 +193,13 @@ class StratumClient:
         return response
 
     def create_subscribe_response(self, id, name):
+        print("subscribe:")
         # name = params
         notification_id = str(uuid.uuid4()).replace("-", "")
         # # block_target = self.process.block_bits2target().hex()
         nonce = Config.get_nonce()
         extranonce1 = Config.get_extranonce1()  # Este valor es fijo
+        extranonce2 = Config.get_extranonce2()
         # difficulty = self.process.calculate_difficulty()
 
         # response = {
@@ -213,17 +224,11 @@ class StratumClient:
             'id': id,
             'result': [
                 [
-                    [
-                        'mining.set_difficulty',
-                        extranonce1
-                    ],
-                    [
-                        'mining.notify',
-                        extranonce1
-                    ]
+                    'mining.set_difficulty',
+                        notification_id
                 ],
-                nonce,
-                4
+                extranonce1,
+                extranonce2
             ],
             'error': None
         }
@@ -231,6 +236,7 @@ class StratumClient:
         return response
 
     def create_mining_notify_response(self, job_data):
+        print("set notify:")
         response = {
             'id': None,
             'method': 'mining.notify',
@@ -249,6 +255,7 @@ class StratumClient:
         return response
 
     def create_mining_set_difficulty_response(self, difficulty):
+        print("set difficulty:")
         response = {
             "id": None,
             "method": "mining.set_difficulty",
@@ -257,6 +264,7 @@ class StratumClient:
         return response
 
     def create_mining_set_extranonce_response(self, extranonce1, extranonce2_size):
+        print("set extranonce:")
         response = {
             'id': None,
             'method': 'mining.set_extranonce',
@@ -268,6 +276,7 @@ class StratumClient:
         return response
 
     def handle_mining_get_transactions(self):
+        print("set transactions:")
         transactions = self.process.select_random_transactions()  # Obtener las transacciones desde la base de datos
         response = {
             'result': transactions,
@@ -277,7 +286,7 @@ class StratumClient:
         return response
 
     async def handle_mining_submit(self, ntime, nonce):
-
+        print("put submit:")
         # Verificar si el resultado es válido
         block_submission = self.process.block_validate(ntime, nonce)
 
