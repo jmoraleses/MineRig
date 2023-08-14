@@ -1,3 +1,4 @@
+import asyncio
 import json
 import random
 import time
@@ -27,7 +28,7 @@ class BlockTemplateFetcher:
         return response['result']
 
     async def get_block_template(self):
-        time.sleep(0.5)
+        await asyncio.sleep(0.5)
         while True:
             try:
                 return await self.rpc("getblocktemplate", [{"rules": ["segwit"]}])
@@ -35,10 +36,10 @@ class BlockTemplateFetcher:
                 return {}
 
 
-    async def submitblock(self, params):
+    def submitblock(self, params):
         result = None
         if params is not False:
-            result = await self.rpc("submitblock", [params])
+            result = self.rpc("submitblock", [params])
         if result:
             return True
         return False

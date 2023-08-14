@@ -242,7 +242,6 @@ class StratumProcessing:
                     elif total_size >= min_size_limit:
                         break
 
-        self.transactions = selected_transactions
         return selected_transactions
 
     def create_job(self, protocol_version):
@@ -251,15 +250,15 @@ class StratumProcessing:
         transactions = self.select_random_transactions()
 
         # Crear la transacción coinbase
-        coinbase_tx = {}
-        transactions.insert(0, coinbase_tx)
         coinbase_message = ('SOLO Mined').encode().hex()
         coinbase_script = self.to_coinbase_script(coinbase_message) + self.int2lehex(0, 4)  # extranonce
         coinbase1 = self.tx_make_coinbase(coinbase_script)
 
         # Crear la segunda parte de la transacción coinbase
-        # Calcula coinbase2
-        coinbase2 = "0" #hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex() ###
+        coinbase2 = hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex()
+
+        transactions.insert(0, coinbase1)
+        transactions.insert(1, coinbase2)
 
         # Crear la raíz Merkle de las transacciones
         merkle = []
@@ -325,4 +324,47 @@ class StratumProcessing:
             return submission
         # else:
         #     print("Bloque no aceptado")
+        return False
+
+
+    def create_job_probe(self):
+        extranonce = random.randint(0, 16**8)
+
+        # Seleccionar transacciones aleatorias
+        transactions = self.select_random_transactions()
+
+        # Crear la transacción coinbase
+        coinbase_message = ('SOLO Mined').encode().hex()
+        coinbase_script = self.to_coinbase_script(coinbase_message) + self.int2lehex(extranonce, 4)  # extranonce
+        coinbase1 = self.tx_make_coinbase(coinbase_script)
+
+        # Crear la segunda parte de la transacción coinbase
+        coinbase2 = hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex()
+
+        # Crear la raíz Merkle de las transacciones
+        merkle = []
+        for tx in transactions:
+            merkle.append(tx['hash'])
+
+        merkle.insert(0, coinbase1)
+        merkle.insert(1, coinbase2)
+
+        self.merkleroot = self.tx_compute_merkle_root(merkle)
+
+
+        ini = int(Config.get_nonce(),16)
+        fin = int(Config.get_target_nonce(),16)
+        for n in range(ini, fin):
+            self.nonce = n
+            block_header_raw = self.block_make_header()
+            block_header = block_header_raw[0:76] + self.nonce.to_bytes(4, byteorder='little')
+            block_hash = self.block_compute_raw_hash(block_header)
+            if block_hash < self.target:
+                # self.nonce = nonce
+                self.hash = block_hash.hex()
+                print("Solved a block! Block hash: {}".format(self.hash))
+                submission = self.block_make_submit(self.transactions)
+                # result = BlockTemplateFetcher.submitblock(submission)
+                return submission
+
         return False

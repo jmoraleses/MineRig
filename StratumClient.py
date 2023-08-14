@@ -53,7 +53,7 @@ class StratumClient:
                     line, buffer = buffer.split('\n', 1)
                     request = json.loads(line)
 
-                    await self.run(writer, request)
+                    self.run(writer, request)
 
                     fin = time.time()
                     transcurrido = fin - ini
@@ -70,12 +70,12 @@ class StratumClient:
                     # Enviar difficulty
                     difficulty = Config.get_difficulty_target()
                     response = self.create_mining_set_difficulty_response(difficulty)
-                    await self.send(response)
+                    self.send(response)
                     print("Mensaje enviado: {}".format(response))
 
                     # Enviar trabajo
                     response = self.create_mining_notify_response(job_data)
-                    await self.send(response)
+                    self.send(response)
                     print("Mensaje enviado: Notify")
                     # print("Mensaje enviado: {}".format(response))
 
@@ -87,20 +87,20 @@ class StratumClient:
                 if miner_id in self.connected_miners:
                     del self.connected_miners[miner_id]
 
-    async def run(self, writer, message):
+    def run(self, writer, message):
 
         # if message:
         print("Mensaje recibido: {}".format(message))
 
         # Procesar los datos recibidos
-        response = await self.handle_stratum_v1(message)
+        response = self.handle_stratum_v1(message)
 
         if response:
             if type(response) is not bool:
-                await self.send(response)
+                self.send(response)
 
 
-    async def send(self, response):
+    def send(self, response):
         self.writer.write(json.dumps(response).encode() + b'\n')
 
 
@@ -117,7 +117,7 @@ class StratumClient:
         return response
 
 
-    async def handle_stratum_v1(self, message):
+    def handle_stratum_v1(self, message):
         method = message['method']
         params = message['params']
         id = message['id']
@@ -162,7 +162,7 @@ class StratumClient:
         elif method == 'mining.submit':
             ntime = params[3]
             nonce = params[4]
-            response = await self.handle_mining_submit(ntime, nonce)
+            response = self.handle_mining_submit(ntime, nonce)
             print("Mensaje enviado: {}".format(response))
 
         elif method == 'mining.authorize':
@@ -170,21 +170,6 @@ class StratumClient:
             password = params[1]
             response = self.handle_mining_authorize(worker, password)
             print("Mensaje enviado: {}".format(response))
-            # print()
-            # await self.send(response)
-
-            # job_data = self.process.create_job(protocol_version=1)
-            # response = self.create_mining_notify_response(job_data)
-            # # print()
-            # # print("Mensaje enviado: {}".format(response))
-            # # print()
-            # await self.send(response)
-            #
-            # difficulty = Config.get_difficulty_target()
-            # response = self.create_mining_set_difficulty_response(difficulty)
-            # print()
-            # print("Mensaje enviado: {}".format(response))
-            # print()
 
         return response
 
@@ -202,24 +187,6 @@ class StratumClient:
         extranonce2 = Config.get_extranonce2()
         # difficulty = self.process.calculate_difficulty()
 
-        # response = {
-        #     "id": 1,
-        #     "result": [
-        #         [
-        #             [
-        #                 "mining.set_difficulty",
-        #                 "b4b6693b72a50c7116db18d6497cac52"
-        #             ],
-        #             [
-        #                 "mining.notify",
-        #                 "ae6812eb4cd7735a302a8a9dd95cf71f"
-        #             ]
-        #         ],
-        #         "08000002",
-        #         4
-        #     ],
-        #     "error": None
-        # }
         response = {
             'id': id,
             'result': [
@@ -285,13 +252,13 @@ class StratumClient:
         }
         return response
 
-    async def handle_mining_submit(self, ntime, nonce):
+    def handle_mining_submit(self, ntime, nonce):
         print("put submit:")
         # Verificar si el resultado es válido
         block_submission = self.process.block_validate(ntime, nonce)
 
         # is_sent_rpc = await BlockTemplateFetcher.submitblock(block_submission)
-        is_sent_rpc = await self.fetcher.submitblock(block_submission)
+        is_sent_rpc = self.fetcher.submitblock(block_submission)
 
         if is_sent_rpc is True:
             response = {
@@ -332,7 +299,7 @@ class StratumClient:
         return False
 
     #
-    # async def handle_stratum_v2(self, message):
+    # def handle_stratum_v2(self, message):
     #     method = message['method']
     #     params = message['params']
     #     response = None
