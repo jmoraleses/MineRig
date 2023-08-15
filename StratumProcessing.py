@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import random
 import struct
@@ -38,6 +39,9 @@ class StratumProcessing:
         self.merkleroot = None
         self.nonce = None
         self.hash = None
+
+    def copy(self, coin, block_template_fetcher):
+        return StratumProcessing(coin, block_template_fetcher)
 
     def bitcoinaddress2hash160(self, addr):
         """
@@ -271,16 +275,13 @@ class StratumProcessing:
         # Crear la segunda parte de la transacción coinbase
         coinbase2 = hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex()
 
-        transactions.insert(0, coinbase1)
-        transactions.insert(1, coinbase2)
-
         # Crear la raíz Merkle de las transacciones
         merkle = []
         for tx in transactions:
-            if tx.get('hash') is None:
-                pass
-            else:
-                merkle.append(tx['hash'])
+            merkle.append(tx['hash'])
+
+        transactions.insert(0, coinbase1)
+        merkle.insert(0, coinbase2)
 
         self.merkleroot = self.tx_compute_merkle_root(merkle)
 
@@ -341,7 +342,7 @@ class StratumProcessing:
         return False
 
 
-    def create_job_probe(self):
+    async def create_job_probe(self):
         extranonce = random.randint(0, 16**8)
 
         # Seleccionar transacciones aleatorias
@@ -360,14 +361,12 @@ class StratumProcessing:
         for tx in transactions:
             merkle.append(tx['hash'])
 
-        merkle.insert(0, coinbase1)
-        merkle.insert(1, coinbase2)
+        transactions.insert(0, coinbase1)
+        merkle.insert(0, coinbase2)
 
         self.merkleroot = self.tx_compute_merkle_root(merkle)
 
-
         ini = int(Config.get_nonce(),16)
-
         for n in range(16**4):
             self.nonce = ini + n
             block_header_raw = self.block_make_header()
@@ -378,7 +377,6 @@ class StratumProcessing:
                 self.hash = block_hash.hex()
                 print("Solved a block! Block hash: {}".format(self.hash))
                 submission = self.block_make_submit(self.transactions)
-                # result = BlockTemplateFetcher.submitblock(submission)
+                # result = await fetcher.submitblock(submission)
                 return submission
-        print(block_header.hex())
         return False
