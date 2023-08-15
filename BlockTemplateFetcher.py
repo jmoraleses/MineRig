@@ -29,7 +29,7 @@ class BlockTemplateFetcher:
         return response['result']
 
     async def get_block_template(self):
-        await asyncio.sleep(0.5)
+        # await asyncio.sleep(0.5)
         while True:
             try:
                 return await self.rpc("getblocktemplate", [{"rules": ["segwit"]}])
