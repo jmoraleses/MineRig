@@ -25,6 +25,20 @@ class StratumProcessing:
         self.nonce = None
         self.hash = None
 
+    def set_template(self, coin, block_template_fetcher):
+        self.coin = coin
+        self.version = block_template_fetcher['version']
+        self.prevhash = block_template_fetcher['previousblockhash']
+        self.transactions = block_template_fetcher['transactions']
+        self.fee = block_template_fetcher['coinbasevalue']
+        self.nbits = block_template_fetcher['bits']
+        self.ntime = block_template_fetcher['curtime']
+        self.height = block_template_fetcher['height']
+        self.target = self.block_bits2target()
+        self.merkleroot = None
+        self.nonce = None
+        self.hash = None
+
     def bitcoinaddress2hash160(self, addr):
         """
         Convert a Base58 Bitcoin address to its Hash-160 ASCII hex string.
@@ -353,11 +367,11 @@ class StratumProcessing:
 
 
         ini = int(Config.get_nonce(),16)
-        fin = int(Config.get_target_nonce(),16)
-        for n in range(ini, fin):
-            self.nonce = n
+
+        for n in range(16**4):
+            self.nonce = ini + n
             block_header_raw = self.block_make_header()
-            block_header = block_header_raw[0:76] + self.nonce.to_bytes(4, byteorder='little')
+            block_header = block_header_raw[0:76] + self.nonce.to_bytes(4, byteorder='big')
             block_hash = self.block_compute_raw_hash(block_header)
             if block_hash < self.target:
                 # self.nonce = nonce
@@ -366,5 +380,5 @@ class StratumProcessing:
                 submission = self.block_make_submit(self.transactions)
                 # result = BlockTemplateFetcher.submitblock(submission)
                 return submission
-
+        print(block_header.hex())
         return False
