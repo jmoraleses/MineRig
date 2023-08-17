@@ -379,5 +379,5 @@ class StratumProcessing:
                 submission = self.block_make_submit(self.transactions)
                 # result = await fetcher.submitblock(submission)
                 return submission
-        # print(block_header.hex())
+        print(block_header.hex())
         return False

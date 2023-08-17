@@ -1,4 +1,5 @@
 import asyncio
+import os
 import threading
 import time
 import asyncio
@@ -12,6 +13,12 @@ import copy
 
 stop_server = False
 
+def clear_console():
+    command = 'clear'
+    if os.name in ('nt', 'dos'):  # Si la máquina es Windows
+        command = 'cls'
+    os.system(command)
+
 
 async def fetch_block_template():
     await asyncio.sleep(0.5)
@@ -21,7 +28,6 @@ async def fetch_block_template():
     # Obtener la plantilla de bloque
     template = await fetcher.get_block_template()
     return template, fetcher
-
 
 async def process_and_submit(process, fetcher):
     # process.set_template(bitcoin_config, template)
@@ -72,6 +78,7 @@ async def main():
                 template = await fetcher.get_block_template()
                 process.set_template(Config.bitcoin, template)
                 ini = time.time()
+                clear_console()
 
 
 if __name__ == "__main__":
