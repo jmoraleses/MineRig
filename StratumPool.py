@@ -2,7 +2,7 @@ import asyncio
 import threading
 import time
 import asyncio
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 
 import Config
 from BlockTemplateFetcher import BlockTemplateFetcher
@@ -31,6 +31,14 @@ async def process_and_submit(process, fetcher):
         print(result)
         print("Mined!")
 
+def task(args):
+    process, fetcher = args
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    result = loop.run_until_complete(process_and_submit(process, fetcher))
+    loop.close()
+    return result
+
 async def main():
 
     # Minería con stratum
@@ -51,16 +59,12 @@ async def main():
     while True:
         if template is not None:
 
-            # num_processes = 100  # Número de tareas que deseas ejecutar
-            # tasks = []
-            # # Crear y agregar las tareas a la lista
-            # for _ in range(num_processes):
-            #     task = asyncio.create_task(process_and_submit(process, fetcher))
-            #     tasks.append(task)
-            # # Esperar a que todas las tareas terminen
-            # await asyncio.gather(*tasks)
-
-            await process_and_submit(process, fetcher)
+            num_processes = 100  # Número de tareas que deseas ejecutar
+            # Crear y agregar las tareas a la lista
+            tasks = [(process, fetcher) for _ in range(num_processes)]
+            # Crear un pool de procesos y asignar las tareas al pool
+            with Pool() as p:
+                results = p.map(task, tasks)
 
             fin = time.time()
             my_time = fin - ini
