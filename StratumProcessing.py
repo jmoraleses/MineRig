@@ -5,6 +5,7 @@ import struct
 from binascii import unhexlify
 
 import Config
+import ParallelizationGPU
 from BlockTemplateFetcher import BlockTemplateFetcher
 from Config import *
 
@@ -371,7 +372,8 @@ class StratumProcessing:
             self.nonce = ini + n
             block_header_raw = self.block_make_header()
             block_header = block_header_raw[0:76] + self.nonce.to_bytes(4, byteorder='big')
-            block_hash = self.block_compute_raw_hash(block_header)
+            block_hash = ParallelizationGPU.calculate_sha256_nonce(block_header) #Paralelización en la GPU
+            # block_hash = self.block_compute_raw_hash(block_header)
             if block_hash < self.target:
                 # self.nonce = nonce
                 self.hash = block_hash.hex()

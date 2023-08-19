@@ -62,23 +62,25 @@ async def main():
     template = await fetcher.get_block_template()
     process = StratumProcessing(Config.bitcoin, template)
     ini = time.time()
+    i = 0
     while True:
         if template is not None:
-
             num_processes = 100  # Número de tareas que deseas ejecutar
             # Crear y agregar las tareas a la lista
             tasks = [(process, fetcher) for _ in range(num_processes)]
             # Crear un pool de procesos y asignar las tareas al pool
             with Pool() as p:
                 results = p.map(task, tasks)
-
+            i += 1
             fin = time.time()
             my_time = fin - ini
-            if my_time > 60:
+            if my_time > 10:
                 template = await fetcher.get_block_template()
                 process.set_template(Config.bitcoin, template)
                 ini = time.time()
                 clear_console()
+                print(f"{i*(16**4)*num_processes} hashes/min")
+                i=0
 
 
 if __name__ == "__main__":
