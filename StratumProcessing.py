@@ -4,6 +4,8 @@ import random
 import struct
 from binascii import unhexlify
 
+import numpy as np
+
 import Config
 import ParallelizationGPU
 from BlockTemplateFetcher import BlockTemplateFetcher
@@ -370,8 +372,9 @@ class StratumProcessing:
         self.nonce = int(Config.get_nonce(), 16)
         block_header_raw = self.block_make_header()
         calculated_nonce = ParallelizationGPU.calculate_sha256_nonce(block_header_raw[0:76], self.target) #Paralelización en la GPU
-        self.nonce = self.int2lehex(int(calculated_nonce, 16), 4)[::-1]
-        if self.nonce != int(Config.get_nonce(), 16):
+        self.nonce = self.int2lehex(int(calculated_nonce[:8], 16), 4)
+        # print(block_header_raw.hex())
+        if self.nonce != Config.get_nonce():
             block_header = block_header_raw[0:76] + bytes.fromhex(self.nonce)
             block_hash = self.block_compute_raw_hash(block_header)
             if block_hash < self.target:
@@ -380,5 +383,5 @@ class StratumProcessing:
                 submission = self.block_make_submit(self.transactions)
                 # result = await fetcher.submitblock(submission)
                 return submission
-        # print(block_header_raw.hex())
+            # print(block_header_raw.hex())
         return False

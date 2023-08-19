@@ -3,17 +3,17 @@ import pyopencl as cl
 import numpy as np
 
 
-def int2lehex(value, width):
-    """
-    Convierte un entero sin signo en una cadena ASCII hexagonal en orden pequeño.
-    Args:
-        value (int): valor
-        width (int): ancho de byte
-    Returns:
-        string: cadena ASCII hexagonal
-    """
-
-    return value.to_bytes(width, byteorder='little').hex()
+# def int2lehex(value, width):
+#     """
+#     Convierte un entero sin signo en una cadena ASCII hexagonal en orden pequeño.
+#     Args:
+#         value (int): valor
+#         width (int): ancho de byte
+#     Returns:
+#         string: cadena ASCII hexagonal
+#     """
+#
+#     return value.to_bytes(width, byteorder='little').hex()
 
 
 def calculate_sha256_nonce(header, target):
@@ -52,7 +52,7 @@ def calculate_sha256_nonce(header, target):
     header_buffer.release()
     toRet_buffer.release()
 
-    return nonce_hex[::-1]
+    return nonce_hex
 
 #
 # if __name__ == "__main__":

@@ -1,8 +1,10 @@
 import asyncio
+import multiprocessing
 import os
 import threading
 import time
 import asyncio
+from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import Process, Pool
 
 import Config
@@ -29,19 +31,15 @@ async def fetch_block_template():
     template = await fetcher.get_block_template()
     return template, fetcher
 
-async def process_and_submit(process, fetcher):
-    # process.set_template(bitcoin_config, template)
+def process_and_submit(process):
     submission = process.create_job_probe()
-    if submission is not False:
-        result = await fetcher.submitblock(submission)
-        print(result)
-        print("Mined!")
+    return submission
 
 def task(args):
-    process, fetcher = args
+    process = args
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    result = loop.run_until_complete(process_and_submit(process, fetcher))
+    result = loop.run_until_complete(process_and_submit(process))
     loop.close()
     return result
 
@@ -64,23 +62,30 @@ async def main():
     ini = time.time()
     i = 0
     while True:
+
+        num_processes = 20  # Número de tareas que deseas ejecutar
         if template is not None:
-            num_processes = 1000  # Número de tareas que deseas ejecutar
-            # Crear y agregar las tareas a la lista
-            tasks = [(process, fetcher) for _ in range(num_processes)]
-            # Crear un pool de procesos y asignar las tareas al pool
-            with Pool() as p:
-                results = p.map(task, tasks)
-            i += 1
-            fin = time.time()
-            my_time = fin - ini
-            if my_time > 10:
-                template = await fetcher.get_block_template()
-                process.set_template(Config.bitcoin, template)
-                ini = time.time()
-                clear_console()
-                print(f"{i*(16**4)*num_processes} hashes/min")
-                i=0
+            loop = asyncio.get_event_loop()
+            with ProcessPoolExecutor(max_workers=num_processes) as executor:
+                tasks = [loop.run_in_executor(executor, process_and_submit, process) for _ in range(num_processes)]
+                results = await asyncio.gather(*tasks)
+
+                for submission_data in results:
+                    if submission_data is not False:
+                        submission_result = await fetcher.submitblock(submission_data)
+                        print(submission_result)
+                        print("Mined!")
+
+        i += 1
+        fin = time.time()
+        my_time = fin - ini
+        if my_time > 6:
+            template = await fetcher.get_block_template()
+            process.set_template(Config.bitcoin, template)
+            ini = time.time()
+            clear_console()
+            print(f"{((i*(3213492224*num_processes)/6000000000))} Ghashes/s")
+            i = 0
 
 
 if __name__ == "__main__":

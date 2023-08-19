@@ -290,7 +290,7 @@ __kernel void Sha256_1(__global uint8_t *header, __global uint8_t *toRet, __glob
     uint8_t tempHdr[80];
     uint8_t tempDigest[32] = {0};
     uint32_t nonce = 1081475072; // Inicio del rango
-    uint32_t nonce_final = 1081540608; // Final del rango
+    uint32_t nonce_final = 4294967296; // Final del rango
 
     // Copiar el encabezado al búfer temporal
     for (int x = 0; x < 80; x++)
