@@ -371,13 +371,14 @@ class StratumProcessing:
         block_header_raw = self.block_make_header()
         calculated_nonce = ParallelizationGPU.calculate_sha256_nonce(block_header_raw[0:76], self.target) #Paralelización en la GPU
         self.nonce = self.int2lehex(int(calculated_nonce, 16), 4)[::-1]
-        block_header = block_header_raw[0:76] + bytes.fromhex(self.nonce)
-        block_hash = self.block_compute_raw_hash(block_header)
-        if block_hash < self.target:
-            self.hash = block_hash.hex()
-            print("Solved a block! Block hash: {}".format(self.hash))
-            submission = self.block_make_submit(self.transactions)
-            # result = await fetcher.submitblock(submission)
-            return submission
-        print(block_header.hex())
+        if self.nonce != int(Config.get_nonce(), 16):
+            block_header = block_header_raw[0:76] + bytes.fromhex(self.nonce)
+            block_hash = self.block_compute_raw_hash(block_header)
+            if block_hash < self.target:
+                self.hash = block_hash.hex()
+                print("Solved a block! Block hash: {}".format(self.hash))
+                submission = self.block_make_submit(self.transactions)
+                # result = await fetcher.submitblock(submission)
+                return submission
+        # print(block_header_raw.hex())
         return False

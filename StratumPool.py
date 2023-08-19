@@ -65,7 +65,7 @@ async def main():
     i = 0
     while True:
         if template is not None:
-            num_processes = 100  # Número de tareas que deseas ejecutar
+            num_processes = 1000  # Número de tareas que deseas ejecutar
             # Crear y agregar las tareas a la lista
             tasks = [(process, fetcher) for _ in range(num_processes)]
             # Crear un pool de procesos y asignar las tareas al pool
