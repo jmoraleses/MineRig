@@ -260,7 +260,7 @@ inline void Sha256_Final1(CSha256 *p, uint8_t *digest)
 }
 
 
-__kernel void Sha256_1(__global uint8_t *header, __global uint8_t *toRet)
+__kernel void _Sha256_1(__global uint8_t *header, __global uint8_t *toRet)
 {
     uint8_t tempHdr[80];
     uint8_t tempDigest[32] = {0};
@@ -282,4 +282,56 @@ __kernel void Sha256_1(__global uint8_t *header, __global uint8_t *toRet)
     {
         toRet[x] = tempDigest[x];
     }
+}
+
+
+__kernel void Sha256_1(__global uint8_t *header, __global uint8_t *toRet, __global uint8_t *target)
+{
+    uint8_t tempHdr[80];
+    uint8_t tempDigest[32] = {0};
+    uint32_t nonce = 1081475072; // Inicio del rango
+    uint32_t nonce_final = 1081540608; // Final del rango
+
+    // Copiar el encabezado al búfer temporal
+    for (int x = 0; x < 80; x++)
+        tempHdr[x] = header[x];
+
+    CSha256 p;
+    CSha256 p1;
+
+    while (nonce <= nonce_final) // Fin del rango
+    {
+        // Actualizar el nonce en el encabezado
+        tempHdr[76] = nonce & 0xFF;
+        tempHdr[77] = (nonce >> 8) & 0xFF;
+        tempHdr[78] = (nonce >> 16) & 0xFF;
+        tempHdr[79] = (nonce >> 24) & 0xFF;
+
+        // Calcular el primer hash SHA-256
+        Sha256_Init(&p);
+        Sha256_Update1(&p, tempHdr, 80);
+        Sha256_Final1(&p, tempDigest);
+
+        // Calcular el segundo hash SHA-256
+        Sha256_Init(&p1);
+        Sha256_Update1(&p1, tempDigest, 32);
+        Sha256_Final1(&p1, tempDigest);
+
+        // Convertir el hash a un valor uint32_t para compararlo con el objetivo
+        uint32_t hashValue = (tempDigest[31] << 24) | (tempDigest[30] << 16) | (tempDigest[29] << 8) | tempDigest[28];
+
+        // Comprobar si el hash cumple la condición del objetivo
+        if (hashValue <= target)
+        {
+            // Almacenar el nonce en el búfer de salida y terminar el kernel
+            toRet[0] = nonce & 0xFF;
+            toRet[1] = (nonce >> 8) & 0xFF;
+            toRet[2] = (nonce >> 16) & 0xFF;
+            toRet[3] = (nonce >> 24) & 0xFF;
+            break; // Salir del bucle si se encuentra un nonce válido
+        }
+
+        nonce++; // Incrementar el nonce para la siguiente iteración
+    }
+
 }

@@ -367,19 +367,17 @@ class StratumProcessing:
 
         self.merkleroot = self.tx_compute_merkle_root(merkle)
 
-        ini = int(Config.get_nonce(),16)
-        for n in range(16**4):
-            self.nonce = ini + n
-            block_header_raw = self.block_make_header()
-            block_header = block_header_raw[0:76] + self.nonce.to_bytes(4, byteorder='big')
-            block_hash = ParallelizationGPU.calculate_sha256_nonce(block_header) #Paralelización en la GPU
-            # block_hash = self.block_compute_raw_hash(block_header)
-            if block_hash < self.target:
-                # self.nonce = nonce
-                self.hash = block_hash.hex()
-                print("Solved a block! Block hash: {}".format(self.hash))
-                submission = self.block_make_submit(self.transactions)
-                # result = await fetcher.submitblock(submission)
-                return submission
+        self.nonce = int(Config.get_nonce(), 16)
+        block_header_raw = self.block_make_header()
+        calculated_nonce = ParallelizationGPU.calculate_sha256_nonce(block_header_raw[0:76], self.target) #Paralelización en la GPU
+        self.nonce = self.int2lehex(int(calculated_nonce, 16), 4)[::-1]
+        block_header = block_header_raw[0:76] + bytes.fromhex(self.nonce)
+        block_hash = self.block_compute_raw_hash(block_header)
+        if block_hash < self.target:
+            self.hash = block_hash.hex()
+            print("Solved a block! Block hash: {}".format(self.hash))
+            submission = self.block_make_submit(self.transactions)
+            # result = await fetcher.submitblock(submission)
+            return submission
         print(block_header.hex())
         return False
