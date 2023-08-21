@@ -1,6 +1,5 @@
 import numpy as np
 import pyopencl as cl
-import pyopencl as cl
 
 
 def calculate_sha256_nonce(header, target, num_device):
