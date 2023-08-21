@@ -1,17 +1,11 @@
 import asyncio
-import multiprocessing
 import os
-import threading
 import time
-import asyncio
 from concurrent.futures import ProcessPoolExecutor
-from multiprocessing import Process, Pool
 
 import Config
 from BlockTemplateFetcher import BlockTemplateFetcher
-from StratumClient import StratumClient
 from StratumProcessing import StratumProcessing
-import copy
 
 stop_server = False
 
@@ -57,16 +51,20 @@ async def main():
     template = None
     fetcher = BlockTemplateFetcher(Config.get_bitcoin_url(), Config.get_bitcoin_username(),
                                    Config.get_bitcoin_password())
-    template = await fetcher.get_block_template()
-    process = StratumProcessing(Config.bitcoin, template)
+    try:
+        template = await fetcher.get_block_template()
+        if template is not None:
+            process = StratumProcessing(Config.bitcoin, template)
+    except:
+        print("Bitcoin Core no encontrado. ¿está encendido?")
     ini = time.time()
     i = 0
     while True:
 
-        num_processes = 20  # Número de tareas que deseas ejecutar
+        num_processes = 10  # Número de tareas que deseas ejecutar
         if template is not None:
-            loop = asyncio.get_event_loop()
-            with ProcessPoolExecutor(max_workers=num_processes) as executor:
+            loop = asyncio.get_running_loop()
+            with ProcessPoolExecutor(max_workers=20) as executor:
                 tasks = [loop.run_in_executor(executor, process_and_submit, process) for _ in range(num_processes)]
                 results = await asyncio.gather(*tasks)
 
@@ -79,12 +77,13 @@ async def main():
         i += 1
         fin = time.time()
         my_time = fin - ini
-        if my_time > 6:
+        if my_time > 10:
             template = await fetcher.get_block_template()
             process.set_template(Config.bitcoin, template)
             ini = time.time()
             clear_console()
-            print(f"{((i*(3213492224*num_processes)/6000000000))} Ghashes/s")
+            print(f"{my_time:.2f}segundos")
+            print(f"{((i*(16**8*16**8*num_processes*10*2)/(int(my_time)*1000000000000000000)))} Ehashes/s")
             i = 0
 
 

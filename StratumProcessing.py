@@ -156,11 +156,11 @@ class StratumProcessing:
              self.int2varinthex(len(pubkey_script) // 2) + pubkey_script + "00000000"
         return tx
 
-    def block_make_header(self):
+    def block_make_header(self, merkleroot):
         header = b""
         header += struct.pack("<L", self.version)
         header += bytes.fromhex(self.prevhash)[::-1]
-        header += bytes.fromhex(self.merkleroot)[::-1]
+        header += bytes.fromhex(merkleroot)[::-1]
         header += struct.pack("<L", self.ntime)
         header += bytes.fromhex(self.nbits)[::-1]
         header += struct.pack("<L", self.nonce)
@@ -229,12 +229,47 @@ class StratumProcessing:
         difficulty = int(target_hash / (16 ** (8 - Config.get_difficulty_target())))
         return difficulty
 
-    def select_random_transactions(self):
-        """Selecciona transacciones hasta que el tamaño total esté entre 220,000 y 280,000 bytes."""
+    # def select_random_transactions(self):
+    #     """Selecciona transacciones hasta que el tamaño total esté entre 220,000 y 280,000 bytes."""
+    #
+    #     # Límites de tamaño en bytes
+    #     min_size_limit = 200 * 1024 #random.randint(130, 240) * 1024  # 220 KB
+    #     max_size_limit = 240 * 1024 #random.randint(240, 300) * 1024  # Valor aleatorio entre 280 KB y 360 KB
+    #
+    #     # Mezcla las transacciones para garantizar un orden aleatorio
+    #     random.shuffle(self.transactions)
+    #
+    #     # Transacciones seleccionadas
+    #     selected_transactions = []
+    #     # Tamaño total de las transacciones seleccionadas
+    #     total_size = 0
+    #
+    #     for transaction in self.transactions:
+    #         transaction_size = 0
+    #         if transaction:
+    #             if transaction['weight']:
+    #                 transaction_size = transaction['weight']
+    #
+    #                 projected_size = total_size + transaction_size
+    #                 # Agrega la transacción si el tamaño proyectado está dentro de los límites
+    #                 if min_size_limit <= projected_size <= max_size_limit:
+    #                     selected_transactions.append(transaction)
+    #                     total_size += transaction_size
+    #                 # Si no hemos alcanzado el tamaño mínimo, agrega la transacción incluso si excede el tamaño máximo
+    #                 elif total_size < min_size_limit:
+    #                     selected_transactions.append(transaction)
+    #                     total_size += transaction_size
+    #                 # Una vez que hemos alcanzado o superado el tamaño mínimo, podemos dejar de agregar transacciones
+    #                 elif total_size >= min_size_limit:
+    #                     break
+    #
+    #     return selected_transactions
 
-        # Límites de tamaño en bytes
-        min_size_limit = random.randint(130, 240) * 1024  # 220 KB
-        max_size_limit = random.randint(240, 300) * 1024  # Valor aleatorio entre 280 KB y 360 KB
+    def select_random_transactions(self):
+        """Selecciona transacciones hasta que el tamaño total esté por debajo del límite máximo."""
+
+        # Límite de tamaño en bytes
+        max_size_limit = random.randint(200, 1024) * 1024  # 280 KB
 
         # Mezcla las transacciones para garantizar un orden aleatorio
         random.shuffle(self.transactions)
@@ -246,24 +281,20 @@ class StratumProcessing:
 
         for transaction in self.transactions:
             transaction_size = 0
-            if transaction:
-                if transaction['weight']:
-                    transaction_size = transaction['weight']
+            if transaction and transaction['weight']:
+                transaction_size = transaction['weight']
 
-                    projected_size = total_size + transaction_size
-                    # Agrega la transacción si el tamaño proyectado está dentro de los límites
-                    if min_size_limit <= projected_size <= max_size_limit:
-                        selected_transactions.append(transaction)
-                        total_size += transaction_size
-                    # Si no hemos alcanzado el tamaño mínimo, agrega la transacción incluso si excede el tamaño máximo
-                    elif total_size < min_size_limit:
-                        selected_transactions.append(transaction)
-                        total_size += transaction_size
-                    # Una vez que hemos alcanzado o superado el tamaño mínimo, podemos dejar de agregar transacciones
-                    elif total_size >= min_size_limit:
-                        break
+                projected_size = total_size + transaction_size
+                # Agrega la transacción si el tamaño proyectado está dentro del límite
+                if projected_size <= max_size_limit:
+                    selected_transactions.append(transaction)
+                    total_size += transaction_size
+                # Si excede el tamaño máximo, dejamos de agregar transacciones
+                else:
+                    break
 
         return selected_transactions
+
 
     def create_job(self, protocol_version):
 
@@ -329,8 +360,9 @@ class StratumProcessing:
             else:
                 merkle.append(tx['hash'])
         # print(merkle)
-        self.merkleroot = self.tx_compute_merkle_root(merkle)
-        block_header_raw = self.block_make_header()
+        merkleroot = self.tx_compute_merkle_root(merkle)
+        self.merkleroot = merkleroot
+        block_header_raw = self.block_make_header(merkleroot)
         block_header = block_header_raw[0:76] + self.nonce.to_bytes(4, byteorder='little')
         block_hash = self.block_compute_raw_hash(block_header)
         if block_hash < self.target:
@@ -346,42 +378,63 @@ class StratumProcessing:
 
 
     def create_job_probe(self):
-        extranonce = random.randint(0, 16**8)
 
-        # Seleccionar transacciones aleatorias
-        transactions = self.select_random_transactions()
+        # extranonce = random.randint(0, 16**8)
 
         # Crear la transacción coinbase
         coinbase_message = ('SOLO Mined').encode().hex()
-        coinbase_script = self.to_coinbase_script(coinbase_message) + self.int2lehex(extranonce, 4)  # extranonce
+        coinbase_script = self.to_coinbase_script(coinbase_message) + self.int2lehex(0, 4)  # extranonce
         coinbase1 = self.tx_make_coinbase(coinbase_script)
 
         # Crear la segunda parte de la transacción coinbase
         coinbase2 = hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex()
 
-        # Crear la raíz Merkle de las transacciones
-        merkle = []
-        for tx in transactions:
-            merkle.append(tx['hash'])
+        for i in range(10):
+            # Seleccionar transacciones aleatorias
+            transactions1 = self.select_random_transactions()
+            transactions2 = self.select_random_transactions()
 
-        transactions.insert(0, coinbase1)
-        merkle.insert(0, coinbase2)
+            # Crear la raíz Merkle de las transacciones
+            merkle1 = []
+            for tx in transactions1:
+                merkle1.append(tx['hash'])
 
-        self.merkleroot = self.tx_compute_merkle_root(merkle)
+            merkle2 = []
+            for tx in transactions2:
+                merkle2.append(tx['hash'])
 
-        self.nonce = int(Config.get_nonce(), 16)
-        block_header_raw = self.block_make_header()
-        calculated_nonce = ParallelizationGPU.calculate_sha256_nonce(block_header_raw[0:76], self.target) #Paralelización en la GPU
-        self.nonce = self.int2lehex(int(calculated_nonce[:8], 16), 4)
-        # print(block_header_raw.hex())
-        if self.nonce != Config.get_nonce():
-            block_header = block_header_raw[0:76] + bytes.fromhex(self.nonce)
-            block_hash = self.block_compute_raw_hash(block_header)
-            if block_hash < self.target:
-                self.hash = block_hash.hex()
-                print("Solved a block! Block hash: {}".format(self.hash))
-                submission = self.block_make_submit(self.transactions)
-                # result = await fetcher.submitblock(submission)
-                return submission
-            # print(block_header_raw.hex())
+            transactions1.insert(0, coinbase1)
+            merkle1.insert(0, coinbase2)
+            transactions2.insert(0, coinbase1)
+            merkle2.insert(0, coinbase2)
+
+            merkleroot1 = self.tx_compute_merkle_root(merkle1)
+            merkleroot2 = self.tx_compute_merkle_root(merkle2)
+
+            self.nonce = int(Config.get_nonce(), 16)
+            block_header_raw1 = self.block_make_header(merkleroot1)
+            block_header_raw2 = self.block_make_header(merkleroot2)
+
+            calculated_nonce1, calculated_version1 = ParallelizationGPU.calculate_sha256_nonce(block_header_raw1[0:76], self.target, num_device=0) #Paralelización en la GPU
+            calculated_nonce2, calculated_version2 = ParallelizationGPU.calculate_sha256_nonce(block_header_raw2[0:76], self.target, num_device=1) #Paralelización en la GPU
+            self.nonce = self.int2lehex(int(calculated_nonce1[:8], 16), 4)
+            version = int(calculated_version1, 16).to_bytes(4, byteorder='little').hex()[::-1]
+            self.version = int(calculated_version1, 16)
+            if self.int2lehex(int(calculated_nonce2[:8], 16), 4) != Config.get_nonce():
+                version = int(calculated_version2, 16).to_bytes(4, byteorder='little').hex()[::-1]
+                self.nonce = self.int2lehex(int(calculated_nonce2[:8], 16), 4)
+                self.version = int(calculated_version2, 16)
+                block_header_raw1 = block_header_raw2
+            if int(self.nonce, 16) != 0: #Config.get_nonce()
+                block_header = block_header_raw1[0:76] + bytes.fromhex(self.nonce)
+                block_header = bytes.fromhex(version) + block_header[8:]
+                # print(block_header.hex())
+                block_hash = self.block_compute_raw_hash(block_header)
+                if block_hash < self.target:
+                    self.hash = block_hash.hex()
+                    print("Solved a block! Block hash: {}".format(self.hash))
+                    submission = self.block_make_submit(self.transactions)
+                    # result = await fetcher.submitblock(submission)
+                    return submission
+            # print(block_header_raw1.hex())
         return False
