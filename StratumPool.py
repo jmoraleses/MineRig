@@ -1,11 +1,16 @@
 import asyncio
 import os
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+
+import numpy as np
 
 import Config
+import ParallelizationGPU
 from BlockTemplateFetcher import BlockTemplateFetcher
 from StratumProcessing import StratumProcessing
+import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 stop_server = False
 
@@ -25,8 +30,9 @@ async def fetch_block_template():
     template = await fetcher.get_block_template()
     return template, fetcher
 
-def process_and_submit(process):
-    submission = process.create_job_probe()
+def process_and_submit(process, model):
+    submission = process.create_job_machine(model)
+    # print(f"start {start_extranonce} increment: {increment_extranonce}")
     return submission
 
 def task(args):
@@ -36,6 +42,19 @@ def task(args):
     result = loop.run_until_complete(process_and_submit(process))
     loop.close()
     return result
+
+
+def generate_combinations(base_string, total_combinations):
+    combinations = []
+    for i in range(total_combinations):
+        hex_counter = hex(i)[2:]
+        hex_counter_padded = hex_counter.zfill(8)
+
+        combined_string = bytes.fromhex(base_string).hex() + bytes.fromhex(hex_counter_padded).hex()
+        combinations.append(combined_string)
+
+    return np.array(combinations)
+
 
 async def main():
 
@@ -53,19 +72,26 @@ async def main():
                                    Config.get_bitcoin_password())
     try:
         template = await fetcher.get_block_template()
-        if template is not None:
-            process = StratumProcessing(Config.bitcoin, template)
+
     except:
         print("Bitcoin Core no encontrado. ¿está encendido?")
     ini = time.time()
     i = 0
+    num_processes = 2000  # Número de tareas que deseas ejecutar
+    process = StratumProcessing(Config.bitcoin, template)
+    model = tf.keras.models.load_model("modelo.h5")
+    # modelo_time = tf.keras.models.load_model("modelo_time.h5")
+    # increment_extranonce = 1000
+    # coinbase_message = ('SOLO Mined').encode().hex()
+    # list_coinbase_script = ParallelizationGPU.concat_extranonce(bytes.fromhex(process.to_coinbase_script(coinbase_message)), num_processes*increment_extranonce, 0)
+    # list_coinbase_script = generate_combinations(process.to_coinbase_script(coinbase_message), num_processes*increment_extranonce)
+    print("start")
     while True:
 
-        num_processes = 10  # Número de tareas que deseas ejecutar
         if template is not None:
             loop = asyncio.get_running_loop()
-            with ProcessPoolExecutor(max_workers=20) as executor:
-                tasks = [loop.run_in_executor(executor, process_and_submit, process) for _ in range(num_processes)]
+            with ProcessPoolExecutor(max_workers=10) as executor:
+                tasks = [loop.run_in_executor(executor, process_and_submit, process, model) for _ in range(num_processes)]
                 results = await asyncio.gather(*tasks)
 
                 for submission_data in results:
@@ -83,7 +109,7 @@ async def main():
             ini = time.time()
             clear_console()
             print(f"{my_time:.2f}segundos")
-            print(f"{((i*(16**8*16**8*num_processes*10*2)/(int(my_time)*1000000000000000000)))} Ehashes/s")
+            print(f"{((i*(16**8*num_processes*600)/(int(my_time)*1000000000000)))} Thashes/s")
             i = 0
 
 

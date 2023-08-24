@@ -1,4 +1,3 @@
-import copy
 import hashlib
 import random
 import struct
@@ -8,7 +7,6 @@ import numpy as np
 
 import Config
 import ParallelizationGPU
-from BlockTemplateFetcher import BlockTemplateFetcher
 from Config import *
 
 
@@ -152,7 +150,7 @@ class StratumProcessing:
         pubkey_script = "76" + "a9" + "14" + self.bitcoinaddress2hash160(get_wallet_address()) + "88" + "ac"
         coinbase_script = self.tx_encode_coinbase_height(self.height) + coinbase_script
         tx = "01000000" + "01" + "0" * 64 + "ffffffff" + self.int2varinthex(
-            len(coinbase_script) // 2) + coinbase_script + "ffffffff" + "01" + self.int2lehex(self.fee,8) + \
+            len(coinbase_script) // 2) + coinbase_script + "ffffffff" + "01" + self.int2lehex(self.fee, 8) + \
              self.int2varinthex(len(pubkey_script) // 2) + pubkey_script + "00000000"
         return tx
 
@@ -203,7 +201,7 @@ class StratumProcessing:
 
         return bytes([width]).hex() + self.int2lehex(height, width)
 
-    def block_make_submit(self, transactions):
+    def block_make_submit(self, transactions, merkleroot):
         """
         Format a solved block into the ASCII hex submit format.
         Arguments:
@@ -215,7 +213,7 @@ class StratumProcessing:
         submission = ""
 
         # Block header
-        submission += self.block_make_header().hex()
+        submission += self.block_make_header(merkleroot).hex()
         # Number of transactions as a varint
         submission += self.int2varinthex(len(transactions))
         # Concatenated transactions data
@@ -281,20 +279,21 @@ class StratumProcessing:
 
         for transaction in self.transactions:
             transaction_size = 0
-            if transaction and transaction['weight']:
-                transaction_size = transaction['weight']
+            if transaction:
 
-                projected_size = total_size + transaction_size
-                # Agrega la transacción si el tamaño proyectado está dentro del límite
-                if projected_size <= max_size_limit:
-                    selected_transactions.append(transaction)
-                    total_size += transaction_size
-                # Si excede el tamaño máximo, dejamos de agregar transacciones
-                else:
-                    break
+                if transaction['weight']:
+                    transaction_size = transaction['weight']
+
+                    projected_size = total_size + transaction_size
+                    # Agrega la transacción si el tamaño proyectado está dentro del límite
+                    if projected_size <= max_size_limit:
+                        selected_transactions.append(transaction)
+                        total_size += transaction_size
+                    # Si excede el tamaño máximo, dejamos de agregar transacciones
+                    else:
+                        break
 
         return selected_transactions
-
 
     def create_job(self, protocol_version):
 
@@ -376,7 +375,6 @@ class StratumProcessing:
         #     print("Bloque no aceptado")
         return False
 
-
     def create_job_probe(self):
 
         # extranonce = random.randint(0, 16**8)
@@ -392,49 +390,101 @@ class StratumProcessing:
         for i in range(10):
             # Seleccionar transacciones aleatorias
             transactions1 = self.select_random_transactions()
-            transactions2 = self.select_random_transactions()
 
             # Crear la raíz Merkle de las transacciones
             merkle1 = []
             for tx in transactions1:
                 merkle1.append(tx['hash'])
 
-            merkle2 = []
-            for tx in transactions2:
-                merkle2.append(tx['hash'])
-
             transactions1.insert(0, coinbase1)
             merkle1.insert(0, coinbase2)
-            transactions2.insert(0, coinbase1)
-            merkle2.insert(0, coinbase2)
 
             merkleroot1 = self.tx_compute_merkle_root(merkle1)
-            merkleroot2 = self.tx_compute_merkle_root(merkle2)
 
             self.nonce = int(Config.get_nonce(), 16)
             block_header_raw1 = self.block_make_header(merkleroot1)
-            block_header_raw2 = self.block_make_header(merkleroot2)
 
-            calculated_nonce1, calculated_version1 = ParallelizationGPU.calculate_sha256_nonce(block_header_raw1[0:76], self.target, num_device=0) #Paralelización en la GPU
-            calculated_nonce2, calculated_version2 = ParallelizationGPU.calculate_sha256_nonce(block_header_raw2[0:76], self.target, num_device=1) #Paralelización en la GPU
-            self.nonce = self.int2lehex(int(calculated_nonce1[:8], 16), 4)
-            version = int(calculated_version1, 16).to_bytes(4, byteorder='little').hex()[::-1]
-            self.version = int(calculated_version1, 16)
-            if self.int2lehex(int(calculated_nonce2[:8], 16), 4) != Config.get_nonce():
-                version = int(calculated_version2, 16).to_bytes(4, byteorder='little').hex()[::-1]
-                self.nonce = self.int2lehex(int(calculated_nonce2[:8], 16), 4)
-                self.version = int(calculated_version2, 16)
-                block_header_raw1 = block_header_raw2
-            if int(self.nonce, 16) != 0: #Config.get_nonce()
+            calculated_nonce1 = ParallelizationGPU.calculate_sha256_nonce(block_header_raw1[0:76], self.target,
+                                                                          num_device=0)  # Paralelización en la GPU
+
+            self.merkleroot = merkleroot1
+            self.nonce = self.int2lehex(int(calculated_nonce1, 16), 4)
+
+            if int(self.nonce, 16) != 0:
+
                 block_header = block_header_raw1[0:76] + bytes.fromhex(self.nonce)
-                block_header = bytes.fromhex(version) + block_header[8:]
-                # print(block_header.hex())
                 block_hash = self.block_compute_raw_hash(block_header)
-                if block_hash < self.target:
+                if block_hash.hex().startswith(19 * "0") or block_hash.hex().endswith(19 * "0"):
                     self.hash = block_hash.hex()
                     print("Solved a block! Block hash: {}".format(self.hash))
-                    submission = self.block_make_submit(self.transactions)
+                    submission = self.block_make_submit(transactions1, self.merkleroot)
                     # result = await fetcher.submitblock(submission)
                     return submission
             # print(block_header_raw1.hex())
+        return False
+
+    def create_job_machine(self, model):
+
+        # Crear la transacción coinbase
+        coinbase_message = ('SOLO Mined').encode().hex()
+        coinbase_script = self.to_coinbase_script(coinbase_message) + self.int2lehex((16 ** 8) - 1, 4)  # extranonce
+
+        coinbase1 = self.tx_make_coinbase(coinbase_script)
+
+        # Crear la segunda parte de la transacción coinbase
+        coinbase2 = hashlib.sha256(hashlib.sha256(coinbase1.encode()).digest()).digest().hex()
+
+        # Seleccionar transacciones aleatorias
+        transactions1 = self.select_random_transactions()
+
+        # Crear la raíz Merkle de las transacciones
+        merkle1 = []
+        for tx in transactions1:
+            merkle1.append(tx['hash'])
+
+        transactions1.insert(0, coinbase1)
+        merkle1.insert(0, coinbase2)
+
+        merkleroot1 = self.tx_compute_merkle_root(merkle1)
+        self.nonce = 0  # int(Config.get_nonce(), 16)
+
+        block_header_raw1_num_s = []
+        block_header_raw_s = []
+        ntime_s = []
+        for t in range(600):
+            self.ntime += 1
+            block_header_raw1 = self.block_make_header(merkleroot1)
+            block_header_raw1_num = np.array([int(num, 16) for num in block_header_raw1[:76].hex()])
+            block_header_raw1_num = block_header_raw1_num.reshape(152, )
+            block_header_raw1_num_s.append(block_header_raw1_num)
+            block_header_raw_s.append(block_header_raw1)
+            ntime_s.append(self.ntime)
+
+        prediction = model.predict(np.array(block_header_raw1_num_s), verbose=0)
+        prediction = np.round(prediction).astype(int)
+        # Encontrar índices de filas con los últimos 19 elementos iguales a cero
+        last_19_elements = prediction[:, -19:]  # Tomar los últimos 19 elementos de todas las filas
+        mask = np.all(last_19_elements == 0, axis=1)  # Crear una máscara de booleanos
+        indices = np.where(mask)[0]  # Obtener los índices donde la máscara es True
+
+        if indices.size > 0:
+            for index in indices:
+                block_header_raw1 = block_header_raw_s[index]
+                self.ntime = ntime_s[index]
+                self.merkleroot = merkleroot1
+
+                calculated_nonce1 = ParallelizationGPU.calculate_sha256_nonce(block_header_raw1[0:76], self.target,
+                                                                              num_device=0)  # Paralelización en la GPU
+                self.nonce = self.int2lehex(int(calculated_nonce1, 16), 4)
+
+                if int(self.nonce, 16) != 0:
+                    block_header = block_header_raw1[0:76] + bytes.fromhex(self.nonce)
+                    block_hash = self.block_compute_raw_hash(block_header)
+                    if block_hash.hex().startswith(19 * "0") or block_hash.hex().endswith(19 * "0"):
+                        self.hash = block_hash.hex()
+                        print("Solved a block! Block hash: {}".format(self.hash))
+                        submission = self.block_make_submit(transactions1, self.merkleroot)
+                        # result = await fetcher.submitblock(submission)
+                        return submission
+                # print(block_header_raw1.hex())
         return False
