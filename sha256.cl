@@ -287,89 +287,6 @@ __kernel void __Sha256_1(__global uint8_t *header, __global uint8_t *toRet)
 }
 
 
-uint32_t bytesToUint32(const uchar *bytes) {
-    return (uint32_t)(bytes[0] << 24) | (uint32_t)(bytes[1] << 16) | (uint32_t)(bytes[2] << 8) | (uint32_t)bytes[3];
-}
-
-
-__kernel void Sha256_1(__global uint8_t *header, __global uint8_t *toRet, __global uint8_t *targetBytes)
-{
-    uint8_t tempHdr[80];
-    uint8_t tempDigest[32] = {0};
-    uint32_t nonce = 0; // Inicio del rango de nonce: 0
-    bool hashFound = false; // Bandera para controlar la terminación de los bucles
-
-    // Copiar el encabezado al búfer temporal
-    for (int x = 0; x < 80; x++)
-        tempHdr[x] = header[x];
-
-    CSha256 p;
-    CSha256 p1;
-
-    uint32_t target = (uint32_t)(targetBytes[9] << 24) | (uint32_t)(targetBytes[10] << 16) | (uint32_t)(targetBytes[11] << 8) | (uint32_t)targetBytes[12];
-    int target_integer = (int)target;
-
-    // Buscar un nonce válido
-    while (nonce <= 4294967295 && !hashFound)
-    {
-        // Actualizar el nonce en el encabezado
-        for (int i = 0; i < 8; i++) {
-            tempHdr[72 + i] = (nonce >> (8 * i)) & 0xFF;
-        }
-
-        // Calcular el primer hash SHA-256
-        Sha256_Init(&p);
-        Sha256_Update1(&p, tempHdr, 80);
-        Sha256_Final1(&p, tempDigest);
-
-        // Calcular el segundo hash SHA-256
-        Sha256_Init(&p1);
-        Sha256_Update1(&p1, tempDigest, 32);
-        Sha256_Final1(&p1, tempDigest);
-
-        // Convertir el hash a un valor uint32_t para compararlo con el objetivo
-        // uint32_t hashValue = (tempDigest[31] << 24) | (tempDigest[30] << 16) | (tempDigest[29] << 8) | tempDigest[28];
-        // uint64_t hashValue = 0;
-
-        // for (int i = 0; i < 4; i++) {
-        //     hashValue |= ((uint64_t)tempDigest[i] << (8 * (3 - i)));
-        // }
-
-        // printf("%llu\n%llu\n", target_integer, hashValue);
-
-        // Comprobar si los últimos 19 bytes del hashValue son ceros
-        bool hasLast19Zeroes = false;
-
-        for (int i = 4; i < 8; i++) {
-            if ((tempDigest[i] >> (8 * (7 - i))) & 0xFF) {
-                hasLast19Zeroes = true;
-                break;
-            }
-        }
-
-        // Comprobar si el hash cumple la condición del objetivo
-        if (hasLast19Zeroes)
-        {
-            // Almacenar el valor completo del nonce en el búfer de salida
-            for (int i = 0; i < 8; i++) {
-                toRet[i] = (nonce >> (8 * (7 - i))) & 0xFF;
-            }
-
-            //printf("%llu\n", toRet);
-
-            // Establecer la bandera para salir de los bucles
-            hashFound = true;
-            break; // Salir del bucle interior
-        }
-
-        nonce = nonce + 1; // Incrementar el nonce para la siguiente iteración
-    }
-
-    // Restaurar el valor de nonce
-    nonce = 0;
-}
-
-
 
 
 void hash256(__global uchar* input, __global uchar* output) {
@@ -396,6 +313,73 @@ void hash256(__global uchar* input, __global uchar* output) {
     // Almacenar el resultado en el búfer de salida
     for (int i = 0; i < 32; i++)
         output[i] = tempDigest[i];
+}
+
+
+uint32_t bytesToUint32(const uchar *bytes) {
+    return (uint32_t)(bytes[0] << 24) | (uint32_t)(bytes[1] << 16) | (uint32_t)(bytes[2] << 8) | (uint32_t)bytes[3];
+}
+
+__kernel void Sha256_1(__global uint8_t *header, __global uint8_t *toRet, __global uint8_t *targetBytes) {
+
+  uint8_t tempHdr[80];
+  uint8_t tempDigest[32] = {0};
+  __private uint32_t nonce = 0;
+  bool hashFound = false;
+
+  // Copiar encabezado
+  for(int i = 0; i < 80; i++) {
+    tempHdr[i] = header[i];
+  }
+
+
+  // Buscar nonce válido
+  while (nonce < 4294967295 && !hashFound) {
+    nonce++;
+
+    if (nonce >= 4294967295) {
+        break;
+    }
+
+    // Concatenar nonce al encabezado
+    for(int i = 0; i < 8; i++) {
+      tempHdr[72 + i] = (nonce >> (i * 8)) & 0xFF;
+    }
+
+    // Inicializar estructura CSha256
+    CSha256 p, p1;
+
+    // Hash doble SHA-256
+    Sha256_Init(&p);
+    Sha256_Update1(&p, tempHdr, 80);
+    Sha256_Final1(&p, tempDigest);
+
+    Sha256_Init(&p1);
+    Sha256_Update1(&p1, tempDigest, 32);
+    Sha256_Final1(&p1, tempDigest);
+
+    // Verificar últimos 18 bytes == 0
+    bool isValid = true;
+    for(int i = 14; i < 32; i++) {
+      if(tempDigest[i] != 0) {
+        isValid = false;
+        break;
+      }
+    }
+
+    // Si es válido, guardar y salir
+    if(isValid) {
+      for(int i = 0; i < 8; i++) {
+        toRet[i] = (nonce >> (i * 8)) & 0xFF;
+      }
+      hashFound = true;
+    }
+
+  }
+
+  // Reiniciar nonce
+  nonce = 0;
+
 }
 
 

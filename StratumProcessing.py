@@ -154,14 +154,14 @@ class StratumProcessing:
              self.int2varinthex(len(pubkey_script) // 2) + pubkey_script + "00000000"
         return tx
 
-    def block_make_header(self, merkleroot):
+    def block_make_header(self, merkleroot, nonce):
         header = b""
         header += struct.pack("<L", self.version)
         header += bytes.fromhex(self.prevhash)[::-1]
         header += bytes.fromhex(merkleroot)[::-1]
         header += struct.pack("<L", self.ntime)
         header += bytes.fromhex(self.nbits)[::-1]
-        header += struct.pack("<L", self.nonce)
+        header += struct.pack("<L", int(nonce))
         return header
 
     def int2varinthex(self, value):
@@ -201,7 +201,7 @@ class StratumProcessing:
 
         return bytes([width]).hex() + self.int2lehex(height, width)
 
-    def block_make_submit(self, transactions, merkleroot):
+    def block_make_submit(self, transactions, merkleroot, nonce):
         """
         Format a solved block into the ASCII hex submit format.
         Arguments:
@@ -213,7 +213,7 @@ class StratumProcessing:
         submission = ""
 
         # Block header
-        submission += self.block_make_header(merkleroot).hex()
+        submission += self.block_make_header(merkleroot, nonce).hex()
         # Number of transactions as a varint
         submission += self.int2varinthex(len(transactions))
         # Concatenated transactions data
@@ -361,7 +361,7 @@ class StratumProcessing:
         # print(merkle)
         merkleroot = self.tx_compute_merkle_root(merkle)
         self.merkleroot = merkleroot
-        block_header_raw = self.block_make_header(merkleroot)
+        block_header_raw = self.block_make_header(merkleroot, self.nonce)
         block_header = block_header_raw[0:76] + self.nonce.to_bytes(4, byteorder='little')
         block_hash = self.block_compute_raw_hash(block_header)
         if block_hash < self.target:
@@ -402,7 +402,7 @@ class StratumProcessing:
             merkleroot1 = self.tx_compute_merkle_root(merkle1)
 
             self.nonce = int(Config.get_nonce(), 16)
-            block_header_raw1 = self.block_make_header(merkleroot1)
+            block_header_raw1 = self.block_make_header(merkleroot1, self.nonce)
 
             calculated_nonce1 = ParallelizationGPU.calculate_sha256_nonce(block_header_raw1[0:76], self.target,
                                                                           num_device=0)  # Paralelización en la GPU
@@ -423,10 +423,16 @@ class StratumProcessing:
             # print(block_header_raw1.hex())
         return False
 
-    def create_job_machine(self, model):
+    def phrase_ascii(self):
+        longitud_frase = random.randint(40, 200)  # Genera una longitud aleatoria entre 10 y 30 caracteres
+        caracteres = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+-=[]{}|;:,.<>?`~"
+        frase = ''.join(random.choice(caracteres) for _ in range(longitud_frase))
+        return frase
+
+    def create_job_machine(self, model, time_block):
 
         # Crear la transacción coinbase
-        coinbase_message = ('SOLO Mined').encode().hex()
+        coinbase_message = self.phrase_ascii().encode().hex()
         coinbase_script = self.to_coinbase_script(coinbase_message) + self.int2lehex((16 ** 8) - 1, 4)  # extranonce
 
         coinbase1 = self.tx_make_coinbase(coinbase_script)
@@ -453,37 +459,43 @@ class StratumProcessing:
         ntime_s = []
         for t in range(600):
             self.ntime += 1
-            block_header_raw1 = self.block_make_header(merkleroot1)
-            block_header_raw1_num = np.array([int(num, 16) for num in block_header_raw1[:76].hex()])
-            block_header_raw1_num = block_header_raw1_num.reshape(152, )
-            block_header_raw1_num_s.append(block_header_raw1_num)
-            block_header_raw_s.append(block_header_raw1)
+            # block_header_raw1 = self.block_make_header(merkleroot1)
+            # block_header_raw1_num = np.array([int(num, 16) for num in block_header_raw1[:76].hex()])
+            # block_header_raw1_num = block_header_raw1_num.reshape(152,)
+            # block_header_raw1_num_s.append(block_header_raw1_num)
+            # block_header_raw_s.append(block_header_raw1)
             ntime_s.append(self.ntime)
+            if self.ntime > time_block+600:
+                break
 
-        prediction = model.predict(np.array(block_header_raw1_num_s), verbose=0)
-        prediction = np.round(prediction).astype(int)
-        # Encontrar índices de filas con los últimos 19 elementos iguales a cero
-        last_19_elements = prediction[:, -19:]  # Tomar los últimos 19 elementos de todas las filas
-        mask = np.all(last_19_elements == 0, axis=1)  # Crear una máscara de booleanos
-        indices = np.where(mask)[0]  # Obtener los índices donde la máscara es True
+            block_header_raw1 = self.block_make_header(merkleroot1, self.nonce)
+            block_header_raw1_num = np.array([int(num, 16) for num in block_header_raw1[:76].hex()])
 
-        if indices.size > 0:
-            for index in indices:
-                block_header_raw1 = block_header_raw_s[index]
-                self.ntime = ntime_s[index]
+            prediction = model.predict(np.array([block_header_raw1_num]), verbose=0)
+            # prediction = np.where(prediction >= 0, np.round(prediction), -1).astype(int) # -1
+            prediction = np.round(prediction).astype(int)
+
+            last_elements = prediction[0:1, -18:]# Tomar los últimos 19 elementos de todas las filas
+            is_last_elements = np.all(last_elements == 0)
+            if is_last_elements:
+                # print(block_header_raw1.hex())
                 self.merkleroot = merkleroot1
-
-                calculated_nonce1 = ParallelizationGPU.calculate_sha256_nonce(block_header_raw1[0:76], self.target,
-                                                                              num_device=0)  # Paralelización en la GPU
-                self.nonce = self.int2lehex(int(calculated_nonce1, 16), 4)
-
-                if int(self.nonce, 16) != 0:
-                    block_header = block_header_raw1[0:76] + bytes.fromhex(self.nonce)
+                nonce = ParallelizationGPU.calculate_sha256_nonce(block_header_raw1[0:76], self.target, num_device=0)  # Paralelización en la GPU
+                # nonce = self.int2lehex(int(calculated_nonce1, 16), 4)
+                print(nonce)
+                if int(nonce) != 0:
+                    block_header = block_header_raw1[0:76] + bytes.fromhex(nonce)
+                    print(block_header.hex())
                     block_hash = self.block_compute_raw_hash(block_header)
-                    if block_hash.hex().startswith(19 * "0") or block_hash.hex().endswith(19 * "0"):
+                    block_header2 = block_header_raw1[0:76] + bytes.fromhex(nonce)[::-1]
+                    print(block_header2.hex())
+                    block_hash2 = self.block_compute_raw_hash(block_header2)
+                    print(block_hash.hex())
+                    print(block_hash2.hex())
+                    if block_hash.hex().startswith(18 * "0") or block_hash.hex().endswith(18 * "0"):
                         self.hash = block_hash.hex()
                         print("Solved a block! Block hash: {}".format(self.hash))
-                        submission = self.block_make_submit(transactions1, self.merkleroot)
+                        submission = self.block_make_submit(transactions1, self.merkleroot, nonce)
                         # result = await fetcher.submitblock(submission)
                         return submission
                 # print(block_header_raw1.hex())

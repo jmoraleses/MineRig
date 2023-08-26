@@ -2,15 +2,12 @@ import asyncio
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-
 import numpy as np
-
 import Config
-import ParallelizationGPU
 from BlockTemplateFetcher import BlockTemplateFetcher
 from StratumProcessing import StratumProcessing
 import tensorflow as tf
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 stop_server = False
 
@@ -30,8 +27,8 @@ async def fetch_block_template():
     template = await fetcher.get_block_template()
     return template, fetcher
 
-def process_and_submit(process, model):
-    submission = process.create_job_machine(model)
+def process_and_submit(process, model, time_block):
+    submission = process.create_job_machine(model, time_block)
     # print(f"start {start_extranonce} increment: {increment_extranonce}")
     return submission
 
@@ -72,14 +69,15 @@ async def main():
                                    Config.get_bitcoin_password())
     try:
         template = await fetcher.get_block_template()
-
+        time_block = template['curtime']
     except:
         print("Bitcoin Core no encontrado. ¿está encendido?")
     ini = time.time()
     i = 0
-    num_processes = 2000  # Número de tareas que deseas ejecutar
+    num_processes = 100  # Número de tareas que deseas ejecutar
+
     process = StratumProcessing(Config.bitcoin, template)
-    model = tf.keras.models.load_model("modelo.h5")
+    model = tf.keras.models.load_model("model_lineal.h5")
     # modelo_time = tf.keras.models.load_model("modelo_time.h5")
     # increment_extranonce = 1000
     # coinbase_message = ('SOLO Mined').encode().hex()
@@ -90,8 +88,8 @@ async def main():
 
         if template is not None:
             loop = asyncio.get_running_loop()
-            with ProcessPoolExecutor(max_workers=10) as executor:
-                tasks = [loop.run_in_executor(executor, process_and_submit, process, model) for _ in range(num_processes)]
+            with ThreadPoolExecutor(max_workers=20) as executor:
+                tasks = [loop.run_in_executor(executor, process_and_submit, process, model, time_block) for _ in range(num_processes)]
                 results = await asyncio.gather(*tasks)
 
                 for submission_data in results:
@@ -104,13 +102,16 @@ async def main():
         fin = time.time()
         my_time = fin - ini
         if my_time > 10:
-            template = await fetcher.get_block_template()
-            process.set_template(Config.bitcoin, template)
             ini = time.time()
             clear_console()
             print(f"{my_time:.2f}segundos")
-            print(f"{((i*(16**8*num_processes*600)/(int(my_time)*1000000000000)))} Thashes/s")
+            print(f"{((i*(16**8*num_processes*600*15)/(int(my_time)*1000000000000)))} Thashes/s")
+            template = await fetcher.get_block_template()
+            process.set_template(Config.bitcoin, template)
+            time_block = template['curtime']
+            print(time_block)
             i = 0
+
 
 
 if __name__ == "__main__":
