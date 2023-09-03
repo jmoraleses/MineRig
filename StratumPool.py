@@ -1,5 +1,6 @@
 import asyncio
 import os
+import queue
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import numpy as np
@@ -27,8 +28,8 @@ async def fetch_block_template():
     template = await fetcher.get_block_template()
     return template, fetcher
 
-def process_and_submit(process, model, time_block):
-    submission = process.create_job_machine(model, time_block)
+async def process_and_submit(process, model, time_block, i):
+    submission = await process.create_job_machine(model, time_block, i)
     # print(f"start {start_extranonce} increment: {increment_extranonce}")
     return submission
 
@@ -69,15 +70,16 @@ async def main():
                                    Config.get_bitcoin_password())
     try:
         template = await fetcher.get_block_template()
-        time_block = template['curtime']
+
     except:
         print("Bitcoin Core no encontrado. ¿está encendido?")
     ini = time.time()
     i = 0
-    num_processes = 100  # Número de tareas que deseas ejecutar
-
+    num_processes = 1  # Número de tareas que deseas ejecutar
+    time_block = template['curtime']
     process = StratumProcessing(Config.bitcoin, template)
-    model = tf.keras.models.load_model("model_lineal.h5")
+    model = tf.keras.models.load_model("model.h5")
+    cont_negative = 0
     # modelo_time = tf.keras.models.load_model("modelo_time.h5")
     # increment_extranonce = 1000
     # coinbase_message = ('SOLO Mined').encode().hex()
@@ -87,16 +89,31 @@ async def main():
     while True:
 
         if template is not None:
-            loop = asyncio.get_running_loop()
-            with ThreadPoolExecutor(max_workers=20) as executor:
-                tasks = [loop.run_in_executor(executor, process_and_submit, process, model, time_block) for _ in range(num_processes)]
-                results = await asyncio.gather(*tasks)
 
-                for submission_data in results:
-                    if submission_data is not False:
-                        submission_result = await fetcher.submitblock(submission_data)
-                        print(submission_result)
-                        print("Mined!")
+            # tasks = [process_and_submit(process, model, time_block) for _ in range(num_processes)]
+            # results = await asyncio.gather(*tasks)
+            # for submission_data in results:
+            #     if submission_data is not False:
+            #         submission_result = await fetcher.submitblock(submission_data)
+            #         print(submission_result)
+            #         print("Mined!")
+
+            # loop = asyncio.get_running_loop()
+            # with ThreadPoolExecutor(max_workers=100) as executor:
+            #     tasks = [loop.run_in_executor(executor, process_and_submit, process, model, time_block, i) for _ in range(num_processes)]
+            #     results = await asyncio.gather(*tasks)
+            # for submission_data in results:
+            #         if submission_data is not False:
+            #             submission_result = await fetcher.submitblock(submission_data)
+            #             print(submission_result)
+            #             print("Mined!")
+
+            # Sin threads
+            submission = await process_and_submit(process, model, time_block, i)
+            if submission is not False:
+                print(submission)
+                await fetcher.submitblock(submission)
+                break
 
         i += 1
         fin = time.time()
@@ -105,11 +122,11 @@ async def main():
             ini = time.time()
             clear_console()
             print(f"{my_time:.2f}segundos")
-            print(f"{((i*(16**8*num_processes*600*15)/(int(my_time)*1000000000000)))} Thashes/s")
+            print(f"{((i*(16**8*num_processes*1*15)/(int(my_time)*1000000000000)))} Thashes/s")
             template = await fetcher.get_block_template()
             process.set_template(Config.bitcoin, template)
             time_block = template['curtime']
-            print(time_block)
+            # print(time_block)
             i = 0
 
 
