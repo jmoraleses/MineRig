@@ -13,3 +13,5 @@ Config.py: Almacena información como la dirección del servidor de minería, el
 StratumProcessing.py: Contiene todos los métodos necesarios para el preprocesamiento, realizar cálculos relacionados con la minería, así como el cálculo del hash del bloque para su validación.
 
 SimulateRig: Contiene una versión simple y pequeña de una conexión cliente-servidor.
+
+StratumProtocol: Se encarga de la conexión con el protocolo stratum al rig de minería o asic.
